@@ -1,6 +1,3 @@
-#define NO_MIME
-#define NO_STATX
-
 #define TAB "  "
 #define COLOR 0
 #include "platform.hpp"
