@@ -1,14 +1,14 @@
 // DON'T INCLUDE THIS!
 // YOU NEED TO COMPILE THIS SEPARATELY, AS A .so FILE!!!
 
-#include "extension.h"
+#include "Extension.cpp"
 #include <iostream>
 #include <string>
 
 // Example Image Extension
 class ImageExtension : public Extension {
 public:
-    ImageExtension() : Extension("ImageExtension") {}
+    ImageExtension() : Extension("img_ext") {}
 
     bool is_compatible(const std::string& filepath) override {
         // Check if the file is an image (for simplicity, we'll just check the extension)
@@ -18,8 +18,8 @@ public:
     Field get_info(const std::string& filepath) override {
         // Stub: In a real scenario, you would get image dimensions, etc.
         Field info("Image Information", "");
-        info.subfields.push_back(Field("Resolution", "1920x1080"));
-        info.subfields.push_back(Field("Color Depth", "24-bit"));
+        info.add_field(Field("Resolution", "1920x1080"));
+        info.add_field(Field("Color Depth", "24-bit"));
 
         return info;
     }

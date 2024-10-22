@@ -6,14 +6,30 @@
 #include <memory>
 #include <dirent.h>
 #include <array>
-// #include <sys/types.h>
 #include <sys/stat.h>
-// #include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <dlfcn.h>
+#include <map>
+#include <iterator> // for back_inserter 
+
+using namespace std;
 
 #include "mime.cpp"
 #include "Field.cpp"
-#include "Extension.cpp"
-using namespace std;
+#include "extension_load.cpp"
+
+inline string get_extension(const string& filename) {
+  return filename.substr(filename.find_last_of(".") + 1);
+}
+
+// Source: https://stackoverflow.com/a/12774387
+// Yeah I stole this from SO :P
+inline bool file_exists(const string& name) {
+  struct stat buffer;
+  return stat(name.c_str(), &buffer) == 0;
+}
 
 array<int, 4> get_files_in_directory(const string& path)
 {
@@ -46,7 +62,7 @@ array<int, 4> get_files_in_directory(const string& path)
   return result;
 }
 
-string basename(string path, bool is_dir=false) {
+inline string basename(string path, bool is_dir=false) {
   return (path.substr(path.find_last_of("/") + 1))+((is_dir) ? "/" : "");
 }
 
@@ -107,7 +123,7 @@ string readable_fs(const long int size /*in bytes*/,
   return str_result;
 }
 
-int print_usage() {
+int print_usage(char* argv[]) {
   cerr << "Usage:" << endl;
   cerr << TABS << argv[0] << " [args] <files>" << endl;
   return 1;
@@ -116,7 +132,7 @@ int print_usage() {
 int main(int argc, char *argv[])
 {
   if (argc < 2) {
-    return print_usage();
+    return print_usage(argv);
   }
   vector<string> files;
   vector<string> args;
@@ -134,11 +150,35 @@ int main(int argc, char *argv[])
   }
 
   if (files.size() < 1) {
-    return print_usage();
+    return print_usage(argv);
+  }
+
+  vector<unique_ptr<Extension>> extensions;
+  const string extloc = "./exts/";
+  if (file_exists(extloc)) {
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (extloc.c_str())) != NULL) {
+      /* print all the files and directories within directory */
+      while ((ent = readdir (dir)) != NULL) {
+        string fn = ent->d_name;
+        if (get_extension(fn) != "ext") continue;
+        extensions.push_back(load_extension(fn));
+      }
+      closedir (dir);
+    } else {
+      /* could not open directory */
+      perror ("");
+      return EXIT_FAILURE;
+    }
   }
 
   bool first = true;
   for (const string& file : files) {
+    if (!file_exists(file)) {
+      cerr << file << " does not exist." << endl;
+      continue;
+    }
     char* temp = (char*)malloc(4097);
     temp[4096] = '\0';
     if (realpath(file.c_str(), temp) == nullptr) {
@@ -148,6 +188,34 @@ int main(int argc, char *argv[])
     string abspath(temp);
     free(temp);
 
+    vector<unique_ptr<Extension>> temp_ext;
+
+    copy(extensions.begin(), extensions.end(), back_inserter(temp_ext));
+
+    temp_ext.erase(
+      std::remove_if(temp_ext.begin(), temp_ext.end(),
+        [&](const std::unique_ptr<Extension>& ext) {
+        return !ext->is_compatible(abspath);
+      }),
+      temp_ext.end()
+    );
+
+    // Collect info from compatible extensions
+    map<string, Field> fields;
+    for (const auto& ext : temp_ext) {
+      if (fields.count(ext->ext_id) != 0) {
+        cerr << "Duplicate id: " << ext->ext_id << endl;
+        continue;
+      }
+      Field info;
+      try {
+        info = ext->get_info(file);
+      } catch (exception& e) {
+        info = Field("Error in "+ext->ext_id, e.what());
+      }
+      fields[ext->ext_id] = info;
+    }
+
     struct stat file_stat;
     if (stat(file.c_str(), &file_stat) != 0) {
       string errdesc = "stat error at file "+file;
@@ -156,10 +224,10 @@ int main(int argc, char *argv[])
     }
     bool is_dir = file_stat.st_mode & S_IFDIR;
 
-    Field type = quick_field("Type", get_file_type(file_stat));
-    Field mime = quick_field("MIME", get_mime(file));
-    Field size = quick_field("Size", readable_fs((long)file_stat.st_size));
-    Field dircont = quick_field("Contents", "");
+    Field type("Type", get_file_type(file_stat));
+    Field mime("MIME", get_mime(file));
+    Field size("Size", readable_fs((long)file_stat.st_size));
+    Field dircont("Contents", "");
     if (is_dir) {
       int buffer_size = 128;
       auto insides = get_files_in_directory(file);
@@ -182,29 +250,29 @@ int main(int argc, char *argv[])
       }
       snprintf(buffer, buffer_size, "%i folders (+%i hidden)", insides[2], insides[3]);
       string _str_dirs = buffer;
-      Field files = quick_field(_str_files, "", false);
-      Field dirs = quick_field(_str_dirs, "", false);
-      dircont.subfields.push_back(files);
-      dircont.subfields.push_back(dirs);
+      Field files(_str_files, "", false);
+      Field dirs(_str_dirs, "", false);
+      dircont.add_field(files);
+      dircont.add_field(dirs);
       free(buffer);
     }
 
     char buffer[8];
     snprintf(buffer, sizeof(buffer), " (%3o)", file_stat.st_mode & 0777);
     string _perms(buffer);
-    Field perms = quick_field("Permissions", print_permissions(file_stat)+_perms);
+    Field perms("Permissions", print_permissions(file_stat)+_perms);
 
     Field start;
     start.name = "\x1b[1m"+basename(abspath, is_dir)+"\x1b[0m";
-    start.subfields.push_back(type);
-    start.subfields.push_back(mime);
-    start.subfields.push_back(size);
-    start.subfields.push_back(perms);
+    start.add_field(type);
+    start.add_field(mime);
+    start.add_field(size);
+    start.add_field(perms);
     if (is_dir) {
-      start.subfields.push_back(dircont);
+      start.add_field(dircont);
     }
 
-    print_field(start);
+    start.print();
     if (first)
       cout << endl;
     first = false;
