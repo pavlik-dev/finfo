@@ -9,6 +9,7 @@ using namespace std;
 class Field
 {
 public:
+	string id = "";  // can be empty ig
 	string name = "";
 	string value = "";
 	vector<Field> subfields;
@@ -16,6 +17,7 @@ public:
 	bool visible = true; // if false, just ignore it and move on
 
 	Field(std::string n, std::string v, bool c = true) : name(n), value(v), colon(c) {}
+	Field(std::string id, std::string n, std::string v, bool c = true) : id(id), name(n), value(v), colon(c) {}
 	Field() {}
 
 	void print(int tabulation = 0) {

@@ -4,7 +4,7 @@ typedef Extension* (*create_extension_t)();
 typedef void (*destroy_extension_t)(Extension*);
 
 // Helper function to load an extension
-unique_ptr<Extension> load_extension(const string& libpath) {
+shared_ptr<Extension> load_extension(const string& libpath) {
     // Load the shared library
     void* handle = dlopen(libpath.c_str(), RTLD_LAZY);
     if (!handle) {
@@ -22,5 +22,7 @@ unique_ptr<Extension> load_extension(const string& libpath) {
 
     // Create the extension instance
     Extension* ext = create_extension();
-    return unique_ptr<Extension>(ext); // Manage the pointer with a unique_ptr
+    unique_ptr<Extension> uext = unique_ptr<Extension>(ext);
+    shared_ptr<Extension> sext = std::move(uext);
+    return sext; // Manage the pointer with a unique_ptr
 }

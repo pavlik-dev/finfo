@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
     return print_usage(argv);
   }
 
-  vector<unique_ptr<Extension>> extensions;
+  vector<shared_ptr<Extension>> extensions;
   const string extloc = "./exts/";
   if (file_exists(extloc)) {
     DIR *dir;
@@ -188,13 +188,13 @@ int main(int argc, char *argv[])
     string abspath(temp);
     free(temp);
 
-    vector<unique_ptr<Extension>> temp_ext;
+    vector<shared_ptr<Extension>> temp_ext;
 
-    copy(extensions.begin(), extensions.end(), back_inserter(temp_ext));
+    temp_ext.insert(temp_ext.begin(), extensions.begin(), extensions.end());
 
     temp_ext.erase(
       std::remove_if(temp_ext.begin(), temp_ext.end(),
-        [&](const std::unique_ptr<Extension>& ext) {
+        [&](const std::shared_ptr<Extension>& ext) {
         return !ext->is_compatible(abspath);
       }),
       temp_ext.end()
@@ -224,11 +224,12 @@ int main(int argc, char *argv[])
     }
     bool is_dir = file_stat.st_mode & S_IFDIR;
 
-    Field type("Type", get_file_type(file_stat));
-    Field mime("MIME", get_mime(file));
-    Field size("Size", readable_fs((long)file_stat.st_size));
-    Field dircont("Contents", "");
+    fields["int.type"] = Field("Type", get_file_type(file_stat));
+    fields["int.mime"] = Field("MIME", get_mime(file));
+    fields["int.size"] = Field("Size", readable_fs((long)file_stat.st_size));
+
     if (is_dir) {
+      Field dircont("Contents", "");
       int buffer_size = 128;
       auto insides = get_files_in_directory(file);
       char *buffer = (char*)malloc(buffer_size);
@@ -254,6 +255,7 @@ int main(int argc, char *argv[])
       Field dirs(_str_dirs, "", false);
       dircont.add_field(files);
       dircont.add_field(dirs);
+      fields["int.contents"] = dircont;
       free(buffer);
     }
 
@@ -264,12 +266,17 @@ int main(int argc, char *argv[])
 
     Field start;
     start.name = "\x1b[1m"+basename(abspath, is_dir)+"\x1b[0m";
-    start.add_field(type);
-    start.add_field(mime);
-    start.add_field(size);
-    start.add_field(perms);
-    if (is_dir) {
-      start.add_field(dircont);
+    // start.add_field(type);
+    // start.add_field(mime);
+    // start.add_field(size);
+    // start.add_field(perms);
+    // if (is_dir) {
+    //   start.add_field(dircont);
+    // }
+
+    for (auto const& x : fields)
+    {
+      start.add_field(x.second);
     }
 
     start.print();
