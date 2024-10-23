@@ -4,6 +4,8 @@
 #define TABS "  "
 
 #include <algorithm>
+#include <iostream>
+#include <vector>
 using namespace std;
 
 class Field
@@ -16,20 +18,29 @@ public:
 	bool colon = true;
 	bool visible = true; // if false, just ignore it and move on
 
-	Field(std::string n, std::string v, bool c = true) : name(n), value(v), colon(c) {}
+
+	// Constructors
 	Field(std::string id, std::string n, std::string v, bool c = true) : id(id), name(n), value(v), colon(c) {}
+	//Field(std::string n, std::string v, bool c = true) : name(n), value(v), colon(c) {}
+	const Field no_id(std::string n, std::string v, bool c = true) {
+		return Field("", n, v, c);
+	}
+
 	Field() {}
 
-	void print(int tabulation = 0) {
+	// tabulation - specifies the level of in(d/t??)ent used
+	// show_id - showes field's id instead of name
+	void print(int tabulation = 0, bool show_id = false) {
 		if (!this->visible) return;
 		for (int i = 0; i < tabulation; ++i)
 			cout << TABS;
-		cout << this->name;
+		if (!show_id) cout << this->name;
+		else cout << this->id;
 		if (this->colon) cout << ":";
 		if (this->value != "") cout << " " << this->value;
 		cout << endl;
 
-		for (auto& field : this->subfields) field.print(tabulation+1);
+		for (auto& field : this->subfields) field.print(tabulation+1, show_id);
 		return;
 	}
 

@@ -1,37 +1,35 @@
-# Makefile
+# Define variables
+CXX := g++
+CXXFLAGS := -Wall -O2
+LDFLAGS := -lmagic
+EXTS_DIR := exts
+MAIN_SRC := main.cpp
+EXT_SRC := sample_extension.cpp
+EXT_OUTPUT := $(EXTS_DIR)/extension.ext
 
-# Compiler
-CXX = g++
+# Rule to create the exts/ folder
+$(EXTS_DIR):
+	mkdir -p $(EXTS_DIR)
 
-# Compiler flags
-CXXFLAGS = -lmagic
+# Check for magic.h (using pkg-config for simplicity)
+check_magic:
+	@if ! pkg-config --exists libmagic; then \
+		echo "Error: libmagic (magic.h) not found."; \
+		exit 1; \
+	fi
 
-# Output file
-OUTPUT = finfo
+# Rule to compile main.cpp into the finfo executable, linking with libmagic
+finfo: check_magic $(MAIN_SRC)
+	$(CXX) $(CXXFLAGS) -o finfo $(MAIN_SRC) $(LDFLAGS)
 
-# Source file
-SRC = main.cpp
+# Rule to compile ext.cpp into a shared object with a custom extension (.ext)
+$(EXT_OUTPUT): $(EXT_SRC) | $(EXTS_DIR)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(EXT_OUTPUT) $(EXT_SRC)
 
-# Rule to compile the program
-$(OUTPUT): $(SRC)
-	$(CXX) $(SRC) $(CXXFLAGS) -o $(OUTPUT)
-
-#nomime: $(SRC)
-#	$(CXX) $(SRC) -o $(OUTPUT) -D NO_MIME
-
-#noemojis: $(SRC)
-#	$(CXX) $(SRC) $(CXXFLAGS) -o $(OUTPUT) -D NO_EMOJIS
-
-check: $(OUTPUT)
-	$(CXX) $(SRC) $(CXXFLAGS) -o $(OUTPUT)
-	rm -f $(OUTPUT)
-
-install: $(OUTPUT)
-	cp $(OUTPUT) /usr/bin/
-
-userinstall: $(OUTPUT)
-	cp $(OUTPUT) ~/.local/bin/
-
-# Clean up generated files
+# Clean target to remove compiled files
 clean:
-	rm -f $(OUTPUT)
+	rm -f finfo $(EXT_OUTPUT)
+	rm -rf $(EXTS_DIR)
+
+# Default target
+all: finfo $(EXT_OUTPUT)

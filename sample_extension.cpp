@@ -1,5 +1,6 @@
 // DON'T INCLUDE THIS!
 // YOU NEED TO COMPILE THIS SEPARATELY, AS A .so FILE!!!
+// g++ -o exts/name.ext -fPIC -shared name.cpp
 
 #include "Extension.cpp"
 #include <iostream>
@@ -17,9 +18,10 @@ public:
 
     Field get_info(const std::string& filepath) override {
         // Stub: In a real scenario, you would get image dimensions, etc.
-        Field info("Image Information", "");
-        info.add_field(Field("Resolution", "1920x1080"));
-        info.add_field(Field("Color Depth", "24-bit"));
+        throw Exception("Hi!");
+        Field info("sample.img", "Image Information", "");
+        info.add_field(Field("sample.img.resolution", "Resolution", "1920x1080"));
+        info.add_field(Field("sample.img.color_depth", "Color Depth", "24-bit"));
 
         return info;
     }

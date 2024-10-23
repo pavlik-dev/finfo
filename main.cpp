@@ -1,4 +1,5 @@
 #define TABS "  "
+#define FIELD_DBG 1
 
 #include <iostream>
 #include <string>
@@ -138,9 +139,10 @@ int main(int argc, char *argv[])
   vector<string> args;
 
   bool files_started = false;
+  string stop_args = "--";
   for (int i = 1; i < argc; ++i) {
     if (argv[i][0] == '-' && !files_started) {
-      if (argv[i] != "--")
+      if (argv[i] != stop_args)
         args.push_back(string(argv[i]));
       else
         files_started = true;
@@ -153,6 +155,10 @@ int main(int argc, char *argv[])
     return print_usage(argv);
   }
 
+  for (const string& arg : args) {
+    cout << arg << endl;
+  }
+
   vector<shared_ptr<Extension>> extensions;
   const string extloc = "./exts/";
   if (file_exists(extloc)) {
@@ -161,7 +167,7 @@ int main(int argc, char *argv[])
     if ((dir = opendir (extloc.c_str())) != NULL) {
       /* print all the files and directories within directory */
       while ((ent = readdir (dir)) != NULL) {
-        string fn = ent->d_name;
+        string fn = extloc+ent->d_name;
         if (get_extension(fn) != "ext") continue;
         extensions.push_back(load_extension(fn));
       }
@@ -201,19 +207,17 @@ int main(int argc, char *argv[])
     );
 
     // Collect info from compatible extensions
-    map<string, Field> fields;
+    vector<Field> int_fields;
+    vector<Field> ext_fields;
     for (const auto& ext : temp_ext) {
-      if (fields.count(ext->ext_id) != 0) {
-        cerr << "Duplicate id: " << ext->ext_id << endl;
-        continue;
-      }
       Field info;
       try {
         info = ext->get_info(file);
-      } catch (exception& e) {
-        info = Field("Error in "+ext->ext_id, e.what());
+        info.id = ext->ext_id;
+      } catch (Exception& e) {
+        info = Field(ext->ext_id, "Error in "+ext->ext_id, e.what());
       }
-      fields[ext->ext_id] = info;
+      ext_fields.push_back(info);
     }
 
     struct stat file_stat;
@@ -224,12 +228,13 @@ int main(int argc, char *argv[])
     }
     bool is_dir = file_stat.st_mode & S_IFDIR;
 
-    fields["int.type"] = Field("Type", get_file_type(file_stat));
-    fields["int.mime"] = Field("MIME", get_mime(file));
-    fields["int.size"] = Field("Size", readable_fs((long)file_stat.st_size));
+    int_fields.push_back(Field("int.type", "Type", get_file_type(file_stat)));
+    int_fields.push_back(Field("int.mime", "MIME", get_mime(file)));
+    // fields["int.mime"] = Field("MIME", get_mime(file));
+    // fields["int.size"] = Field("Size", readable_fs((long)file_stat.st_size));
 
     if (is_dir) {
-      Field dircont("Contents", "");
+      Field dircont("int.contents", "Contents", "");
       int buffer_size = 128;
       auto insides = get_files_in_directory(file);
       char *buffer = (char*)malloc(buffer_size);
@@ -241,7 +246,6 @@ int main(int argc, char *argv[])
       snprintf(buffer, buffer_size, "%i files (+%i hidden)", insides[0], insides[1]);
       string _str_files = buffer;
       free(buffer);
-      char temp[4097] = {'\0'};
 
       buffer = (char*)malloc(buffer_size);
       if (buffer == NULL) {
@@ -251,35 +255,35 @@ int main(int argc, char *argv[])
       }
       snprintf(buffer, buffer_size, "%i folders (+%i hidden)", insides[2], insides[3]);
       string _str_dirs = buffer;
-      Field files(_str_files, "", false);
-      Field dirs(_str_dirs, "", false);
+      Field files("int.contents.files", _str_files, "", false);
+      Field dirs("int.contents.dirs", _str_dirs, "", false);
       dircont.add_field(files);
       dircont.add_field(dirs);
-      fields["int.contents"] = dircont;
+      int_fields.push_back(dircont);
       free(buffer);
+    } else {
+      int_fields.push_back(Field("int.size", "Size", readable_fs((long)file_stat.st_size)));
     }
 
     char buffer[8];
     snprintf(buffer, sizeof(buffer), " (%3o)", file_stat.st_mode & 0777);
     string _perms(buffer);
-    Field perms("Permissions", print_permissions(file_stat)+_perms);
+    int_fields.push_back(Field("int.permissions", "Permissions", print_permissions(file_stat)+_perms));
 
     Field start;
     start.name = "\x1b[1m"+basename(abspath, is_dir)+"\x1b[0m";
-    // start.add_field(type);
-    // start.add_field(mime);
-    // start.add_field(size);
-    // start.add_field(perms);
-    // if (is_dir) {
-    //   start.add_field(dircont);
-    // }
+    start.id = start.name;
 
-    for (auto const& x : fields)
+    for (auto& fld : int_fields)
     {
-      start.add_field(x.second);
+      start.add_field(fld);
+    }
+    for (auto& fld : ext_fields)
+    {
+      start.add_field(fld);
     }
 
-    start.print();
+    start.print(0, FIELD_DBG);
     if (first)
       cout << endl;
     first = false;
