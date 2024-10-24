@@ -5,31 +5,27 @@
 #include "Extension.cpp"
 #include <iostream>
 #include <string>
+#include "mime.cpp"
 
 // Example Image Extension
-class ImageExtension : public Extension {
+class MimeExtension : public Extension {
 public:
-    ImageExtension() : Extension("img_ext") {}
+    MimeExtension() : Extension("int.mime_ext") {}
 
     bool is_compatible(const std::string& filepath) override {
         // Check if the file is an image (for simplicity, we'll just check the extension)
-        return filepath.find(".png") != std::string::npos || filepath.find(".jpg") != std::string::npos;
+        return true;
     }
 
     Field get_info(const std::string& filepath) override {
         // Stub: In a real scenario, you would get image dimensions, etc.
-        throw Exception("Hi!");
-        Field info("sample.img", "Image Information", "");
-        info.add_field(Field("sample.img.resolution", "Resolution", "1920x1080"));
-        info.add_field(Field("sample.img.color_depth", "Color Depth", "24-bit"));
-
-        return info;
+        return Field("mime", "MIME", get_mime(filepath));
     }
 };
 
 // Factory function for creating the extension
 extern "C" Extension* create_extension() {
-    return new ImageExtension();
+    return new MimeExtension();
 }
 
 // Factory function for destroying the extension
