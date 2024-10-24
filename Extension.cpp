@@ -1,3 +1,5 @@
+#ifndef EXT_CPP
+#define EXT_CPP
 #include <string>
 #include "Field.cpp"
 
@@ -13,12 +15,5 @@ public:
     virtual ~Extension() = default; // Ensure proper cleanup
 };
 
-class Exception {
-private:
-	std::string _what;
-public:
-	Exception(std::string what) : _what(what) {}
-	std::string what() {
-		return this->_what;
-	}
-};
+#include "exception.cpp"
+#endif

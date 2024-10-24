@@ -1,5 +1,5 @@
 #define TABS "  "
-#define FIELD_DBG 1
+#define FIELD_DBG 0
 
 #include <iostream>
 #include <string>
@@ -17,7 +17,6 @@
 
 using namespace std;
 
-#include "mime.cpp"
 #include "Field.cpp"
 #include "extension_load.cpp"
 
@@ -180,7 +179,9 @@ int main(int argc, char *argv[])
   }
 
   bool first = true;
+  int counter = 0;
   for (const string& file : files) {
+    counter++;
     if (!file_exists(file)) {
       cerr << file << " does not exist." << endl;
       continue;
@@ -207,18 +208,6 @@ int main(int argc, char *argv[])
     );
 
     // Collect info from compatible extensions
-    vector<Field> int_fields;
-    vector<Field> ext_fields;
-    for (const auto& ext : temp_ext) {
-      Field info;
-      try {
-        info = ext->get_info(file);
-        info.id = ext->ext_id;
-      } catch (Exception& e) {
-        info = Field(ext->ext_id, "Error in "+ext->ext_id, e.what());
-      }
-      ext_fields.push_back(info);
-    }
 
     struct stat file_stat;
     if (stat(file.c_str(), &file_stat) != 0) {
@@ -228,13 +217,27 @@ int main(int argc, char *argv[])
     }
     bool is_dir = file_stat.st_mode & S_IFDIR;
 
-    int_fields.push_back(Field("int.type", "Type", get_file_type(file_stat)));
-    int_fields.push_back(Field("int.mime", "MIME", get_mime(file)));
-    // fields["int.mime"] = Field("MIME", get_mime(file));
-    // fields["int.size"] = Field("Size", readable_fs((long)file_stat.st_size));
+    /* Using extensions only after we made sure that the file exists and is valid */
+
+    vector<Field> int_fields;
+    vector<Field> ext_fields;
+    for (const auto& ext : temp_ext) {
+      Field info;
+      try {
+        info = ext->get_info(file);
+        info.id = ext->ext_id;
+      } catch (exception& e) {
+        info = Field(ext->ext_id, "Error in "+ext->ext_id, e.what());
+      } catch (...) {
+        info = Field(ext->ext_id, "Error in "+ext->ext_id, "*unknown error*");
+      }
+      ext_fields.push_back(info);
+    }
+
+    int_fields.push_back(Field("type", "Type", get_file_type(file_stat)));
 
     if (is_dir) {
-      Field dircont("int.contents", "Contents", "");
+      Field dircont("contents", "Contents", "");
       int buffer_size = 128;
       auto insides = get_files_in_directory(file);
       char *buffer = (char*)malloc(buffer_size);
@@ -243,7 +246,8 @@ int main(int argc, char *argv[])
           fprintf(stderr, "Memory allocation failed\n");
           return 1;
       }
-      snprintf(buffer, buffer_size, "%i files (+%i hidden)", insides[0], insides[1]);
+      snprintf(buffer, buffer_size, "%i files (+%i hidden)",
+          insides[0], insides[1]);
       string _str_files = buffer;
       free(buffer);
 
@@ -253,26 +257,29 @@ int main(int argc, char *argv[])
           fprintf(stderr, "Memory allocation failed\n");
           return 1;
       }
-      snprintf(buffer, buffer_size, "%i folders (+%i hidden)", insides[2], insides[3]);
+      snprintf(buffer, buffer_size, "%i folders (+%i hidden)",
+          insides[2], insides[3]);
       string _str_dirs = buffer;
-      Field files("int.contents.files", _str_files, "", false);
-      Field dirs("int.contents.dirs", _str_dirs, "", false);
+      Field files("contents.files", _str_files, "", false);
+      Field dirs("contents.dirs", _str_dirs, "", false);
       dircont.add_field(files);
       dircont.add_field(dirs);
       int_fields.push_back(dircont);
       free(buffer);
     } else {
-      int_fields.push_back(Field("int.size", "Size", readable_fs((long)file_stat.st_size)));
+      int_fields.push_back(Field("size", "Size",
+          readable_fs((long)file_stat.st_size)));
     }
 
     char buffer[8];
     snprintf(buffer, sizeof(buffer), " (%3o)", file_stat.st_mode & 0777);
     string _perms(buffer);
-    int_fields.push_back(Field("int.permissions", "Permissions", print_permissions(file_stat)+_perms));
+    int_fields.push_back(Field("permissions", "Permissions",
+        print_permissions(file_stat)+_perms));
 
     Field start;
     start.name = "\x1b[1m"+basename(abspath, is_dir)+"\x1b[0m";
-    start.id = start.name;
+    start.id = "start";
 
     for (auto& fld : int_fields)
     {
@@ -283,7 +290,9 @@ int main(int argc, char *argv[])
       start.add_field(fld);
     }
 
-    start.print(0, FIELD_DBG);
+    string file_id = "file" + to_string(counter) + ".";
+
+    start.print(0, FIELD_DBG, file_id);
     if (first)
       cout << endl;
     first = false;

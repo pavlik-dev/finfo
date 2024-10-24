@@ -4,7 +4,7 @@ CXXFLAGS := -Wall -O2
 LDFLAGS := -lmagic
 EXTS_DIR := exts
 MAIN_SRC := main.cpp
-EXT_SRC := sample_extension.cpp
+EXT_SRC := mime_extension.cpp
 EXT_OUTPUT := $(EXTS_DIR)/extension.ext
 
 # Rule to create the exts/ folder

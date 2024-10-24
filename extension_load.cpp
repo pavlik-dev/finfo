@@ -5,7 +5,6 @@ typedef void (*destroy_extension_t)(Extension*);
 
 // Helper function to load an extension
 shared_ptr<Extension> load_extension(const string& libpath) {
-    cout << "Loading " << libpath << endl;
     // Load the shared library
     void* handle = dlopen(libpath.c_str(), RTLD_LAZY);
     if (!handle) {

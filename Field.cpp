@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <iostream>
-#include <vector>
+#include <map>
+#include "exception.cpp"
+
 using namespace std;
 
 class Field
@@ -14,38 +16,44 @@ public:
 	string id = "";  // can be empty ig
 	string name = "";
 	string value = "";
-	vector<Field> subfields;
+	map<string, Field> subfields;
 	bool colon = true;
 	bool visible = true; // if false, just ignore it and move on
 
 
 	// Constructors
-	Field(std::string id, std::string n, std::string v, bool c = true) : id(id), name(n), value(v), colon(c) {}
-	//Field(std::string n, std::string v, bool c = true) : name(n), value(v), colon(c) {}
-	const Field no_id(std::string n, std::string v, bool c = true) {
-		return Field("", n, v, c);
-	}
+	Field(std::string id, std::string n, std::string v, bool c = true):
+		id(id), name(n), value(v), colon(c) {}
+	//Field(std::string n, std::string v, bool c = true):
+	//	name(n), value(v), colon(c) {}
+	// const Field no_id(std::string n, std::string v, bool c = true) {
+	// 	return Field("", n, v, c);
+	// }
 
 	Field() {}
 
 	// tabulation - specifies the level of in(d/t??)ent used
 	// show_id - showes field's id instead of name
-	void print(int tabulation = 0, bool show_id = false) {
+	void print(int tabulation = 0, bool show_id = false, string id_pre = "") {
 		if (!this->visible) return;
 		for (int i = 0; i < tabulation; ++i)
 			cout << TABS;
 		if (!show_id) cout << this->name;
-		else cout << this->id;
+		else cout << id_pre << this->id;
 		if (this->colon) cout << ":";
 		if (this->value != "") cout << " " << this->value;
 		cout << endl;
 
-		for (auto& field : this->subfields) field.print(tabulation+1, show_id);
+		for (auto& field : this->subfields)
+			field.second.print(tabulation+1, show_id, id_pre+this->id+".");
 		return;
 	}
 
 	void add_field(Field subfield) {
-		this->subfields.push_back(subfield);
+		if (this->subfields.count(subfield.id) > 0) {
+			throw Exception("Hi");
+		}
+		this->subfields[subfield.id] = subfield;
 	}
 };
 
