@@ -1,5 +1,6 @@
 #define TABS "  "
 #define FIELD_DBG 0
+#define LOAD_EXT_VERB 0
 
 #include <iostream>
 #include <string>
@@ -20,6 +21,17 @@ using namespace std;
 #include "Field.cpp"
 #include "extension_load.cpp"
 
+bool field_dbg = FIELD_DBG;
+bool load_ext_verb = LOAD_EXT_VERB;
+
+std::string dirnameOf(const std::string& fname)
+{
+  size_t pos = fname.find_last_of("\\/");
+  return (std::string::npos == pos)
+    ? ""
+    : fname.substr(0, pos);
+}
+
 inline string get_extension(const string& filename) {
   return filename.substr(filename.find_last_of(".") + 1);
 }
@@ -28,7 +40,7 @@ inline string get_extension(const string& filename) {
 // Yeah I stole this from SO :P
 inline bool file_exists(const string& name) {
   struct stat buffer;
-  return stat(name.c_str(), &buffer) == 0;
+  return lstat(name.c_str(), &buffer) == 0;
 }
 
 array<int, 4> get_files_in_directory(const string& path)
@@ -126,6 +138,8 @@ string readable_fs(const long int size /*in bytes*/,
 int print_usage(char* argv[]) {
   cerr << "Usage:" << endl;
   cerr << TABS << argv[0] << " [args] <files>" << endl;
+  cerr << "Args:" << endl;
+  cerr << TABS << "-fd" << " Prints out field's ID instead of it's name." << endl;
   return 1;
 }
 
@@ -154,12 +168,27 @@ int main(int argc, char *argv[])
     return print_usage(argv);
   }
 
+  const string field__dbg = "-fd";
+  const string ext__dbg = "-ev";
   for (const string& arg : args) {
-    cout << arg << endl;
+    
+    if (arg == field__dbg) {
+      field_dbg = true;
+    }
+    if (arg == ext__dbg) {
+      load_ext_verb = true;
+    }
   }
 
   vector<shared_ptr<Extension>> extensions;
-  const string extloc = "./exts/";
+
+  char* temp = (char*) malloc(4096);
+  readlink("/proc/self/exe", temp, 4096);
+  const string exec_path(temp);
+  // delete[] temp;
+  free(temp);
+
+  const string extloc = dirnameOf(exec_path)+"/exts/";
   if (file_exists(extloc)) {
     DIR *dir;
     struct dirent *ent;
@@ -168,6 +197,7 @@ int main(int argc, char *argv[])
       while ((ent = readdir (dir)) != NULL) {
         string fn = extloc+ent->d_name;
         if (get_extension(fn) != "ext") continue;
+        if (load_ext_verb) cout << "Loading " << fn << endl;
         extensions.push_back(load_extension(fn));
       }
       closedir (dir);
@@ -181,6 +211,9 @@ int main(int argc, char *argv[])
   bool first = true;
   int counter = 0;
   for (const string& file : files) {
+    if (!first) {
+      cout << endl;
+    }
     counter++;
     if (!file_exists(file)) {
       cerr << file << " does not exist." << endl;
@@ -190,7 +223,6 @@ int main(int argc, char *argv[])
     temp[4096] = '\0';
     if (realpath(file.c_str(), temp) == nullptr) {
       perror("realpath");
-      return 1;
     }
     string abspath(temp);
     free(temp);
@@ -210,7 +242,7 @@ int main(int argc, char *argv[])
     // Collect info from compatible extensions
 
     struct stat file_stat;
-    if (stat(file.c_str(), &file_stat) != 0) {
+    if (lstat(file.c_str(), &file_stat) != 0) {
       string errdesc = "stat error at file "+file;
       perror(errdesc.c_str());
       continue;
@@ -292,9 +324,7 @@ int main(int argc, char *argv[])
 
     string file_id = "file" + to_string(counter) + ".";
 
-    start.print(0, FIELD_DBG, file_id);
-    if (first)
-      cout << endl;
+    start.print(0, field_dbg, file_id);
     first = false;
   }
   return 0;
