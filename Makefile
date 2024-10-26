@@ -25,7 +25,7 @@ finfo: check_magic $(MAIN_SRC)
 
 # Rule to compile ext.cpp into a shared object with a custom extension (.ext)
 $(EXT_OUTPUT): $(EXT_SRC) | $(EXTS_DIR)
-	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(EXT_OUTPUT) $(EXT_SRC)
+	$(CXX) $(CXXFLAGS) -pie -fPIC -shared -o $(EXT_OUTPUT) $(EXT_SRC) -lmagic
 
 # Clean target to remove compiled files
 clean:
