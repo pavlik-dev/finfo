@@ -14,7 +14,7 @@
 #include <pwd.h>
 #include <dlfcn.h>
 #include <map>
-#include <iterator> // for back_inserter 
+#include <iterator>  // for back_inserter
 
 using namespace std;
 
@@ -189,23 +189,38 @@ int main(int argc, char *argv[])
   free(temp);
 
   const string extloc = dirnameOf(exec_path)+"/exts/";
-  if (file_exists(extloc)) {
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir (extloc.c_str())) != NULL) {
-      /* print all the files and directories within directory */
-      while ((ent = readdir (dir)) != NULL) {
-        string fn = extloc+ent->d_name;
-        if (get_extension(fn) != "ext") continue;
-        if (load_ext_verb) cout << "Loading " << fn << endl;
-        extensions.push_back(load_extension(fn));
+  try {
+    if (file_exists(extloc)) {
+      DIR *dir;
+      struct dirent *ent;
+      if ((dir = opendir (extloc.c_str())) != NULL) {
+        /* print all the files and directories within directory */
+        while ((ent = readdir (dir)) != NULL) {
+          string fn = extloc+ent->d_name;
+          if (get_extension(fn) != "ext") continue;
+          if (load_ext_verb) cout << "Loading " << fn << endl;
+          shared_ptr<Extension> extension;
+          try { extension = load_extension(fn); }
+          catch (Exception& e) {
+            cerr << "Error in " << fn << ": " << e.what() << endl;
+            continue;
+          }
+          if (extension == nullptr) {
+            cerr << "Failed to load extension " << fn << ", skip." << endl;
+            continue;
+          }
+          extensions.push_back(extension);
+        }
+        closedir (dir);
+      } else {
+        /* could not open directory */
+        perror ("");
+        return EXIT_FAILURE;
       }
-      closedir (dir);
-    } else {
-      /* could not open directory */
-      perror ("");
-      return EXIT_FAILURE;
     }
+  }
+  catch (Exception& e) {
+    cerr << "Failed: " << e.what() << endl;
   }
 
   bool first = true;
@@ -258,6 +273,8 @@ int main(int argc, char *argv[])
       try {
         info = ext->get_info(file);
         info.id = ext->ext_id;
+      } catch (Exception& e) {
+        info = Field(ext->ext_id, "Error in"+ext->ext_id, e.what());
       } catch (exception& e) {
         info = Field(ext->ext_id, "Error in "+ext->ext_id, e.what());
       } catch (...) {
@@ -315,11 +332,20 @@ int main(int argc, char *argv[])
 
     for (auto& fld : int_fields)
     {
-      start.add_field(fld);
+      try {
+        start.add_field(fld);
+      } catch (DuplicateIDException& e) {
+        cerr << TABS << "Duplicate ID: " << e.what() << endl;
+      }
     }
     for (auto& fld : ext_fields)
     {
-      start.add_field(fld);
+      try {
+        start.add_field(fld);
+      } catch (DuplicateIDException* e) {
+        cerr << TABS << "Duplicate ID: " << e->what() << endl;
+        cerr << TABS << "Please delete that extension, or modify it and try again." << endl;
+      }
     }
 
     string file_id = "file" + to_string(counter) + ".";

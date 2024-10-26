@@ -6,9 +6,24 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <string>
 #include "exception.cpp"
 
 using namespace std;
+
+// #pragma region Exceptions
+
+class DuplicateIDException {
+private:
+	string _what;
+public:
+	DuplicateIDException(string what) : _what(what) {}
+	string what() {
+		return this->_what;
+	}
+};
+
+// #pragma endreg
 
 class Field
 {
@@ -51,7 +66,7 @@ public:
 
 	void add_field(Field subfield) {
 		if (this->subfields.count(subfield.id) > 0) {
-			throw Exception("Hi");
+			throw new DuplicateIDException(subfield.id);
 		}
 		this->subfields[subfield.id] = subfield;
 	}

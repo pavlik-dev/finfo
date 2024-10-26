@@ -21,7 +21,7 @@ check_magic:
 
 # Rule to compile main.cpp into the finfo executable, linking with libmagic
 finfo: check_magic $(MAIN_SRC)
-	$(CXX) $(CXXFLAGS) -o finfo $(MAIN_SRC) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o finfo $(MAIN_SRC) $(LDFLAGS) -rdynamic -g
 
 # Rule to compile ext.cpp into a shared object with a custom extension (.ext)
 $(EXT_OUTPUT): $(EXT_SRC) | $(EXTS_DIR)

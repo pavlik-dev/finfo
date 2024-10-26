@@ -1,15 +1,15 @@
 // DON'T INCLUDE THIS!
-// YOU NEED TO COMPILE THIS SEPARATELY, AS A .so FILE!!!
+// YOU NEED TO COMPILE THIS SEPARATELY, AS A .ext FILE!!!
 // g++ -o exts/name.ext -fPIC -shared name.cpp
 
-// #include <opencv2/core.hpp>
-// #include <opencv2/imgcodecs.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include "Extension.cpp"
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <cstring>
-#include "mime.cpp"
+// #include "mime.cpp"
 
 struct ImgDim
 {
@@ -46,9 +46,9 @@ struct ImgDim get_png_image_dimensions(const std::string& file_path)
 }
 
 // Example Image Extension
-class MimeExtension : public Extension {
+class ImageExtension : public Extension {
 public:
-    MimeExtension() : Extension("int.mime_ext") {}
+    ImageExtension() : Extension("int.img_ext") {}
 
     bool is_compatible(const std::string& filepath) override {
         // Check if the file is an image (for simplicity, we'll just check the extension)
@@ -57,14 +57,13 @@ public:
 
     Field get_info(const std::string& filepath) override {
         // Stub: In a real scenario, you would get image dimensions, etc.
-        // std::string image_path = filepath;
-        // cv::Mat img = cv::imread(image_path, cv::IMREAD_COLOR);
-     
-        // if(img.empty())
-        // {
-        //     throw Exception("Cannot open this image :(");
-        // }
-        // return Field("res", "Resolution", to_string(img.cols)+"x"+to_string(img.rows));
+        std::string image_path = filepath;
+        cv::Mat img = cv::imread(image_path, cv::IMREAD_COLOR);
+        if(img.empty())
+        {
+            return Field("error", "OpenCV Error", "Cannot open this image :(");
+        }
+        return Field("res", "Resolution", to_string(img.cols)+"x"+to_string(img.rows));
         auto res = get_png_image_dimensions(filepath);
         return Field("res", "Resolution", to_string(res.x)+"x"+to_string(res.y));
     }
@@ -72,10 +71,16 @@ public:
 
 // Factory function for creating the extension
 extern "C" Extension* create_extension() {
-    return new MimeExtension();
+    return new ImageExtension();
 }
 
 // Factory function for destroying the extension
 extern "C" void destroy_extension(Extension* ext) {
     delete ext;
+}
+
+int main() {
+    cout << "This is a finfo extension." << endl;
+    cout << "https://gitea.com/pavliktt/finfo" << endl;
+    return 1;
 }

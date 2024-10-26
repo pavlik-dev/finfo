@@ -32,3 +32,8 @@ extern "C" Extension* create_extension() {
 extern "C" void destroy_extension(Extension* ext) {
     delete ext;
 }
+
+int main() {
+    cout << "This is a finfo extension." << endl;
+    cout << "https:\/\/gitea.com/pavliktt/finfo" << endl;
+}
