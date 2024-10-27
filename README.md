@@ -21,6 +21,13 @@ $ ./finfo .
 ## Extensions
 Want to see the image resolution? Make your own extension!
 Take mime_extension.cpp as an example.
+But please stick to these rules:
+* The extension ID must contain your nickname, first name, last name, anything that will make it unique:<br>
+  `pavliktt.is_kitty`
+* An error occurred? Throw Exception(*what happened*)!<br>
+  ```
+  throw new Exception("Cuteness overflow!");
+  ```
 
 ## Compiling
 ### Compiling finfo only
