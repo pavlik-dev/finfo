@@ -9,7 +9,7 @@ finfo is a small program that displays information about a file. Yeah that's all
 ## Example
 ```
 $ ./finfo .
-<b>finfo/</b>:
+finfo/:
   Contents:
     1 folders (+1 hidden)
     17 files (+1 hidden)
@@ -25,7 +25,7 @@ But please stick to these rules:
 * The extension ID should contain your nickname, first name, last name, anything that will make it unique:<br>
   `pavliktt.is_kitty`
 * An error occurred? `throw Exception(*what happened*)!`<br>
-  ```
+  ```c++
   throw new Exception("Cuteness overflow!");
   ```
 * Compatibility check should be super fast, like checking magic numbers or extensions.<br>
@@ -34,10 +34,10 @@ But please stick to these rules:
 
 ## Compiling
 ### Compiling finfo only
-```
+```shell
 make finfo
 ```
 ### finfo + mime_extension
-```
+```shell
 make all
 ```
