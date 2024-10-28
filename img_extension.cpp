@@ -1,14 +1,15 @@
 // DON'T INCLUDE THIS!
 // YOU NEED TO COMPILE THIS SEPARATELY, AS A .ext FILE!!!
-// g++ -o exts/name.ext -fPIC -shared name.cpp
+// g++ -o exts/name.ext -pie -fPIC -shared name.cpp
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
+#define EXT_ID "pyt.img_ext"
+
 #include "Extension.cpp"
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <cstring>
+#include <sys/stat.h>
 // #include "mime.cpp"
 
 struct ImgDim
@@ -48,22 +49,18 @@ struct ImgDim get_png_image_dimensions(const std::string& file_path)
 // Example Image Extension
 class ImageExtension : public Extension {
 public:
-    ImageExtension() : Extension("int.img_ext") {}
+    ImageExtension() : Extension(EXT_ID) {}
 
     bool is_compatible(const std::string& filepath) override {
         // Check if the file is an image (for simplicity, we'll just check the extension)
-        return is_png(filepath);
+        struct stat buffer;
+        cout << filepath << endl;
+        if (stat(filepath.c_str(), &buffer) != 0) return false;
+        if ((bool)(buffer.st_mode & S_IFREG)) return is_png(filepath);
+        return false;
     }
 
     Field get_info(const std::string& filepath) override {
-        // Stub: In a real scenario, you would get image dimensions, etc.
-        std::string image_path = filepath;
-        cv::Mat img = cv::imread(image_path, cv::IMREAD_COLOR);
-        if(img.empty())
-        {
-            return Field("error", "OpenCV Error", "Cannot open this image :(");
-        }
-        return Field("res", "Resolution", to_string(img.cols)+"x"+to_string(img.rows));
         auto res = get_png_image_dimensions(filepath);
         return Field("res", "Resolution", to_string(res.x)+"x"+to_string(res.y));
     }

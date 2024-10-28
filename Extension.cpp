@@ -6,6 +6,7 @@
 class Extension {
 public:
     std::string ext_id;
+    std::string file_name = "unset"; // Don't set this.
 
     Extension(std::string ext_id) : ext_id(ext_id) {}
 

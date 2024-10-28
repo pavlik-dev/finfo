@@ -2,6 +2,8 @@
 // YOU NEED TO COMPILE THIS SEPARATELY, AS A .so FILE!!!
 // g++ -o exts/name.ext -fPIC -shared name.cpp
 
+#define EXT_ID "pyt.mime_ext"
+
 #include "Extension.cpp"
 #include <iostream>
 #include <string>
@@ -10,15 +12,13 @@
 // Example Image Extension
 class MimeExtension : public Extension {
 public:
-    MimeExtension() : Extension("int.mime_ext") {}
+    MimeExtension() : Extension(EXT_ID) {}
 
     bool is_compatible(const std::string& filepath) override {
-        // Check if the file is an image (for simplicity, we'll just check the extension)
         return true;
     }
 
     Field get_info(const std::string& filepath) override {
-        // Stub: In a real scenario, you would get image dimensions, etc.
         return Field("mime", "MIME", get_mime(filepath));
     }
 };
@@ -35,5 +35,5 @@ extern "C" void destroy_extension(Extension* ext) {
 
 int main() {
     cout << "This is a finfo extension." << endl;
-    cout << "https:\/\/gitea.com/pavliktt/finfo" << endl;
+    cout << "https://gitea.com/pavliktt/finfo" << endl;
 }

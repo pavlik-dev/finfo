@@ -20,9 +20,23 @@ using namespace std;
 
 #include "Field.cpp"
 #include "extension_load.cpp"
+#include "file.cpp"
 
 bool field_dbg = FIELD_DBG;
 bool load_ext_verb = LOAD_EXT_VERB;
+
+std::string trim(const std::string& str,
+                 const std::string& whitespace = " \t\n")
+{
+    const auto strBegin = str.find_first_not_of(whitespace);
+    if (strBegin == std::string::npos)
+        return ""; // no content
+
+    const auto strEnd = str.find_last_not_of(whitespace);
+    const auto strRange = strEnd - strBegin + 1;
+
+    return str.substr(strBegin, strRange);
+}
 
 std::string dirnameOf(const std::string& fname)
 {
@@ -140,6 +154,7 @@ int print_usage(char* argv[]) {
   cerr << TABS << argv[0] << " [args] <files>" << endl;
   cerr << "Args:" << endl;
   cerr << TABS << "-fd" << " Prints out field's ID instead of it's name." << endl;
+  cerr << TABS << "-ev" << " Prints out every loaded extension." << endl;
   return 1;
 }
 
@@ -189,39 +204,38 @@ int main(int argc, char *argv[])
   free(temp);
 
   const string extloc = dirnameOf(exec_path)+"/exts/";
-  try {
-    if (file_exists(extloc)) {
-      DIR *dir;
-      struct dirent *ent;
-      if ((dir = opendir (extloc.c_str())) != NULL) {
-        /* print all the files and directories within directory */
-        while ((ent = readdir (dir)) != NULL) {
-          string fn = extloc+ent->d_name;
-          if (get_extension(fn) != "ext") continue;
-          if (load_ext_verb) cout << "Loading " << fn << endl;
-          shared_ptr<Extension> extension;
-          try { extension = load_extension(fn); }
-          catch (Exception& e) {
-            cerr << "Error in " << fn << ": " << e.what() << endl;
-            continue;
-          }
-          if (extension == nullptr) {
-            cerr << "Failed to load extension " << fn << ", skip." << endl;
-            continue;
-          }
-          extensions.push_back(extension);
+  if (file_exists(extloc)) {
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (extloc.c_str())) != NULL) {
+      /* print all the files and directories within directory */
+      while ((ent = readdir (dir)) != NULL) {
+        string fn = extloc+ent->d_name;
+        if (get_extension(fn) != "ext") continue;
+        if (load_ext_verb) cout << "Loading " << fn << endl;
+        shared_ptr<Extension> extension;
+        try { extension = load_extension(fn); }
+        catch (Exception& e) {
+          cerr << "Error in " << fn << ": " << e.what() << endl;
+          continue;
         }
-        closedir (dir);
-      } else {
-        /* could not open directory */
-        perror ("");
-        return EXIT_FAILURE;
+        if (extension == nullptr) {
+          cerr << "Failed to load extension " << fn << ", skip." << endl;
+          continue;
+        }
+        // extension->file_name = fn;
+        if (load_ext_verb) cout << "Loaded " << fn << " successfully." << endl;
+        extensions.push_back(extension);
       }
+      closedir (dir);
+    } else {
+      /* could not open directory */
+      perror ("");
+      return EXIT_FAILURE;
     }
   }
-  catch (Exception& e) {
-    cerr << "Failed: " << e.what() << endl;
-  }
+
+  // Compatibility 
 
   bool first = true;
   int counter = 0;
@@ -230,20 +244,11 @@ int main(int argc, char *argv[])
       cout << endl;
     }
     counter++;
-    if (!file_exists(file)) {
-      cerr << file << " does not exist." << endl;
-      continue;
-    }
-    char* temp = (char*)malloc(4097);
-    temp[4096] = '\0';
-    if (realpath(file.c_str(), temp) == nullptr) {
-      perror("realpath");
-    }
-    string abspath(temp);
-    free(temp);
+    File file_obj(file, Stat::LSTAT);
+    struct stat file_stat = file_obj.file_stat;
+    string abspath = file_obj.abs_path;
 
     vector<shared_ptr<Extension>> temp_ext;
-
     temp_ext.insert(temp_ext.begin(), extensions.begin(), extensions.end());
 
     temp_ext.erase(
@@ -254,14 +259,7 @@ int main(int argc, char *argv[])
       temp_ext.end()
     );
 
-    // Collect info from compatible extensions
 
-    struct stat file_stat;
-    if (lstat(file.c_str(), &file_stat) != 0) {
-      string errdesc = "stat error at file "+file;
-      perror(errdesc.c_str());
-      continue;
-    }
     bool is_dir = file_stat.st_mode & S_IFDIR;
 
     /* Using extensions only after we made sure that the file exists and is valid */
@@ -269,9 +267,12 @@ int main(int argc, char *argv[])
     vector<Field> int_fields;
     vector<Field> ext_fields;
     for (const auto& ext : temp_ext) {
+      // if (ext_fields.count(ext->ext_id) != 0) {
+      //   cerr << ext->file_name << " has duplicate ID " << ext->ext_id << ". Skip." << endl;
+      // }
       Field info;
       try {
-        info = ext->get_info(file);
+        info = ext->get_info(abspath);
         info.id = ext->ext_id;
       } catch (Exception& e) {
         info = Field(ext->ext_id, "Error in"+ext->ext_id, e.what());
@@ -309,8 +310,8 @@ int main(int argc, char *argv[])
       snprintf(buffer, buffer_size, "%i folders (+%i hidden)",
           insides[2], insides[3]);
       string _str_dirs = buffer;
-      Field files("contents.files", _str_files, "", false);
-      Field dirs("contents.dirs", _str_dirs, "", false);
+      Field files("files", _str_files, "", false);
+      Field dirs("dirs", _str_dirs, "", false);
       dircont.add_field(files);
       dircont.add_field(dirs);
       int_fields.push_back(dircont);
@@ -325,6 +326,21 @@ int main(int argc, char *argv[])
     string _perms(buffer);
     int_fields.push_back(Field("permissions", "Permissions",
         print_permissions(file_stat)+_perms));
+
+    struct tm * timeinfo;
+    Field dates("dates", "Last", "");
+    #ifdef __APPLE__ // macOS
+      timeinfo = localtime(&file_stat.st_birthtime); // or gmtime() depending on what you want
+      dates.add_field(Field("creation_date", "Creation date", trim(string(asctime(timeinfo)))));
+    #endif
+
+    timeinfo = localtime(&file_stat.st_atime);
+    dates.add_field(Field("open_date", "opened", trim(string(asctime(timeinfo)))));
+
+    timeinfo = localtime(&file_stat.st_mtime);
+    dates.add_field(Field("modify_date", "modified", trim(string(asctime(timeinfo)))));
+
+    int_fields.push_back(dates);
 
     Field start;
     start.name = "\x1b[1m"+basename(abspath, is_dir)+"\x1b[0m";
