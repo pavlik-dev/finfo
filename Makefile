@@ -14,14 +14,14 @@ $(EXTS_DIR):
 
 # Check for magic.h (using pkg-config for simplicity)
 check_magic:
-	@if ! pkg-config --exists libmagic; then \
-		echo "Error: libmagic (magic.h) not found."; \
+	@if [ $(ldconfig -p | grep libmagic.so.1) ]; then \
+		echo "Error: libmagic.so.1 (magic.h) not found."; \
 		exit 1; \
 	fi
 
 # Rule to compile main.cpp into the finfo executable, linking with libmagic
 finfo: check_magic $(MAIN_SRC)
-	$(CXX) $(CXXFLAGS) -o finfo $(MAIN_SRC) $(LDFLAGS) -rdynamic -g
+	$(CXX) $(CXXFLAGS) -o finfo $(MAIN_SRC) $(LDFLAGS) -ldl -rdynamic
 
 # Rule to compile ext.cpp into a shared object with a custom extension (.ext)
 $(EXT_OUTPUT): $(EXT_SRC) | $(EXTS_DIR)

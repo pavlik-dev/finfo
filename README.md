@@ -41,3 +41,10 @@ make finfo
 ```shell
 make all
 ```
+
+## Supported OSs
+**Linux** -- Full support
+**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** -- Partial support, no extensions
+**Windows** -- Not supported because of `stat` existing as `_stat` in Windows for some reason...
+
+
