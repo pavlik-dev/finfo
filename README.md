@@ -22,9 +22,9 @@ finfo/:
 Want to see the image resolution? Make your own extension!
 Take mime_extension.cpp as an example.
 But please stick to these rules:
-* The extension ID should contain your nickname, first name, last name, anything that will make it unique:<br>
+* The extension ID must be unique to prevent conflicts.<br>
   `pavliktt.is_kitty`
-* An error occurred? `throw Exception(*what happened*)!`<br>
+* An error occurred? `throw Exception()!`<br>
   ```c++
   throw new Exception("Cuteness overflow!");
   ```
@@ -43,8 +43,8 @@ make all
 ```
 
 ## Supported OSs
-**Linux** -- Full support
-**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** -- Partial support, no extensions
-**Windows** -- Not supported because of `stat` existing as `_stat` in Windows for some reason...
+**Linux** -- Full support\
+**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** -- Partial support, no extensions\
+**Windows** -- Untested.
 
-
+I'm sure it'll work on any architecture.
