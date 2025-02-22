@@ -3,7 +3,11 @@ finfo is a small program that displays information about a file. Yeah that's all
 
 ## Usage
 ```
-./finfo [args] <files>
+Usage:
+  ./finfo [args] <files>
+Args:
+  -fd Prints out field's ID instead of it's name.
+  -ev Prints out every loaded extension.
 ```
 
 ## Example
