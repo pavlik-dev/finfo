@@ -10,8 +10,8 @@ EXT_OUTPUT := $(EXTS_DIR)/extension.ext
 #BASENAME := $(shell basename $(CURDIR))
 
 # Rule to create the exts/ folder
-$(EXTS_DIR):
-	mkdir -p $(EXTS_DIR)
+#$(EXTS_DIR):
+#	mkdir -p $(EXTS_DIR)
 
 # Check for magic.h (using pkg-config for simplicity)
 check_magic:
@@ -31,11 +31,10 @@ $(EXT_OUTPUT): $(EXT_SRC) | $(EXTS_DIR)
 # Clean target to remove compiled files
 clean:
 	rm -f finfo $(EXT_OUTPUT)
-	rm -rf $(EXTS_DIR)
+#	rm -rf $(EXTS_DIR)
 
 install:
-	sudo cp -r ./ /opt/finfo
-	sudo ln -s /opt/finfo/finfo /usr/bin/finfo
+	sudo cp -r ./finfo /usr/bin/finfo
 	@echo -e "\n\033[1mInstallation done!\033[0m"
 	@echo "You're all set now!"
 
