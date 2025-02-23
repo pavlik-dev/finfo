@@ -5,38 +5,22 @@ finfo is a small program that displays information about a file. Yeah that's all
 
 ## Usage
 ```
-Usage:
-  ./finfo [args] <files>
-Args:
-  -fd Prints out field's ID instead of it's name.
-  -ev Prints out every loaded extension.
+./finfo <files>
 ```
 
 ## Example
 ```
-$ ./finfo .
+$ finfo .
 finfo/:
-  Contents:
-    1 folders (+1 hidden)
-    17 files (+1 hidden)
-  MIME: inode/directory
-  Permissions: drwxr-xr-x (755)
   Type: directory/folder
+  Contents:
+    11 files (+0 hidden):
+    3 folders (+3 hidden):
+  Permissions: drwxrwxr-x (775)
+  Last:
+    opened: Sun Feb 23 05:20:33 2025
+    modified: Sun Feb 23 05:20:03 2025
 ```
-
-## Extensions
-Want to see the image resolution? Make your own extension!
-Take mime_extension.cpp as an example.
-But please stick to these rules:
-* The extension ID must be unique to prevent conflicts.<br>
-  `pavliktt.is_kitty`
-* An error occurred? `throw Exception()!`<br>
-  ```c++
-  throw new Exception("Cuteness overflow!");
-  ```
-* Compatibility check should be super fast, like checking magic numbers or extensions.<br>
-  Don't use anything that can slow down the program.
-* **PLEASE**, check if your extension is working properly before making it publicly available.
 
 ## Compiling
 ### Compiling
@@ -50,5 +34,5 @@ make install
 
 ## Supported OSs
 **Linux** &mdash; Full support\
-**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** &mdash; Partial support, no extensions\
-**Windows** &mdash; Untested.
+**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** &mdash; Untested, full support expected\
+**Windows** &mdash; Untested, no support expected.
