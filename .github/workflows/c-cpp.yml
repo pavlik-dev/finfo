@@ -14,6 +14,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: install libmagic-dev
-      run: sudo apt install libmagic-dev
-    - name: make
+      run: sudo apt install libmagic-dev x86_64-w64-mingw32-g++-win32
+    - name: linux compile
       run: make finfo
+    - name: win32 compile
+      run: x86_64-w64-mingw32-g++-win32 main.cpp -o finfo-win32-x86_64.exe \
+        -static-libgcc -static-libstdc++
