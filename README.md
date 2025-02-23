@@ -1,3 +1,5 @@
+[![C/C++ CI](https://github.com/pavlik-dev/finfo/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/pavlik-dev/finfo/actions/workflows/c-cpp.yml)
+
 # finfo -- F*ile* Info
 finfo is a small program that displays information about a file. Yeah that's all!
 
