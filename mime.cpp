@@ -1,7 +1,7 @@
 #ifndef MIME_CPP
 #define MIME_CPP
 
-#ifndef NO_MIME
+#if !defined(NO_MIME) && !defined(_WIN32)
 #include <magic.h>
 
 std::string get_mime(const std::string& filename)

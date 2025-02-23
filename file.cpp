@@ -1,61 +1,86 @@
-// file.cpp
+#include <string>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <vector>
+#ifndef _WIN32
+#define STAT stat
+#define DELIM "/"
+#else
+#define STAT _stat
+#define DELIM "\\"
+#endif
+
+#ifdef WIN32
+#define realpath(N,R) _fullpath((R),(N),_MAX_PATH)
+#endif
+
+#ifndef _MAX_PATH
+#define _MAX_PATH 255
+#endif
+
+using namespace std;
 
 inline bool __file_exists(const string& name) {
-  struct stat buffer;
-  return lstat(name.c_str(), &buffer) == 0;
+    struct STAT buffer;
+    return STAT(name.c_str(), &buffer) == 0;
 }
 
 enum Stat {
-  STAT,
-  LSTAT
+    _STAT,
+    LSTAT
 };
 
 class NotFoundException {
 public:
-  NotFoundException(string _what) : _what(_what) {}
-  string what() {
-    return this->_what+" doesn't exists.";
-  }
+    NotFoundException(const string& _what) : _what(_what) {}
+    string what() const {
+        return _what + " doesn't exist.";
+    }
 private:
-  string _what = "This file";
+    string _what;
 };
 
 class StatFailedException {
 public:
-  StatFailedException(string _what) : _what(_what) {}
-  string what() {
-    return "stat/lstat failed: "+this->_what;
-  }
+    StatFailedException(const string& _what) : _what(_what) {}
+    string what() const {
+        return "stat/lstat failed: " + _what;
+    }
 private:
-  string _what = "This file";
+    string _what;
 };
+
+inline string basename(string path, bool is_dir = false)
+{
+	return (path.substr(path.find_last_of(DELIM) + 1)) + ((is_dir) ? DELIM : "");
+}
 
 class File {
 public:
-  string file_name;
-  string abs_path;
-  struct stat file_stat;
-  // Constructor
-  File(string file, Stat _stat = Stat::LSTAT) {
-    this->file_name = file;
-    if (!__file_exists(file)) {
-      throw new NotFoundException(file);
+    string file_name;
+    string abs_path;
+    struct STAT file_stat;
+
+    // Constructor
+    File(const string& file) {
+        this->file_name = file;
+
+        if (!__file_exists(file)) {
+            throw NotFoundException(file);
+        }
+
+        vector<char> temp(_MAX_PATH);
+        if (realpath(file.c_str(), temp.data()) == nullptr) {
+            perror("realpath");
+            throw StatFailedException("Failed to resolve absolute path.");
+        }
+        this->abs_path = string(temp.data());
+
+        if (STAT(file.c_str(), &file_stat) != 0) {
+            perror(("stat error at file " + file).c_str());
+            throw StatFailedException(file);
+        }
     }
-    char* temp = (char*)malloc(4097);
-    temp[4096] = '\0';
-    if (realpath(file.c_str(), temp) == nullptr) {
-      perror("realpath");
-    }
-    string abspath(temp);
-    free(temp);
-    this->abs_path = abspath;
-    struct stat filestat;
-    if (((_stat == Stat::LSTAT) ? lstat : stat)(file.c_str(), &file_stat) != 0) {
-      string errdesc = "stat error at file "+file;
-      perror(errdesc.c_str());
-      return;
-    }
-    this->file_stat = filestat;
-    return; 
-  }
+
+    File() {}
 };
