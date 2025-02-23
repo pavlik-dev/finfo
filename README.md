@@ -39,18 +39,16 @@ But please stick to these rules:
 * **PLEASE**, check if your extension is working properly before making it publicly available.
 
 ## Compiling
-### Compiling finfo only
+### Compiling
 ```shell
 make finfo
 ```
-### finfo + mime_extension
+### Installing
 ```shell
-make all
+make install
 ```
 
 ## Supported OSs
-**Linux** -- Full support\
-**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** -- Partial support, no extensions\
-**Windows** -- Untested.
-
-I'm sure it'll work on any architecture.
+**Linux** &mdash; Full support\
+**Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** &mdash; Partial support, no extensions\
+**Windows** &mdash; Untested.
