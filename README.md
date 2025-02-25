@@ -22,12 +22,18 @@ finfo/:
     modified: Sun Feb 23 05:20:03 2025
 ```
 
+## Mirrors
+Please note that mirrors may not be up to date.
+ * [GitLab](https://gitlab.com/pavlik-dev/finfo)
+ * [Gitea](https://gitea.com/pavliktt/finfo)
+
 ## Compiling
 ### Compiling
 ```shell
 make finfo
 ```
-### Installing
+
+### Installing (root access required)
 ```shell
 make install
 ```
@@ -35,4 +41,4 @@ make install
 ## Supported OSs
 **Linux** &mdash; Full support\
 **Mac OS X/OS X/macOS, iPhone OS/iOS/iPadOS** &mdash; Untested, full support expected\
-**Windows** &mdash; Untested, no support expected.
+**Windows** &mdash; **Experimental**, build with g++.
