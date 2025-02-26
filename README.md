@@ -22,11 +22,6 @@ finfo/:
     modified: Sun Feb 23 05:20:03 2025
 ```
 
-## Mirrors
-Please note that mirrors may not be up to date.
- * [GitLab](https://gitlab.com/pavlik-dev/finfo)
- * [Gitea](https://gitea.com/pavliktt/finfo)
-
 ## Compiling
 ### Compiling
 ```shell
