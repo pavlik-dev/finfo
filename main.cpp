@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
 #endif
     start.emplaceField("Modified", oss.str());
 
-    start.name = File::basename(file_obj.file_name) + (is_dir ? DELIM : "");
+    start.name = File::basename(file_obj.abs_path) + (is_dir ? DELIM : "");
     std::cout << start.print(TAB) << std::flush;
   }
   return 0;
