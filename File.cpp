@@ -1,20 +1,4 @@
-#if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64)
-#define PLATFORM 1 // 1 for WIN32
-#elif defined(__linux__) || defined(__linux)
-#define PLATFORM 2 // 2 for LINUX
-#elif defined(__MACH__)
-#define PLATFORM 3 // 3 for MACOSX
-#elif defined(__APPLE__)
-#define PLATFORM 4 // 4 for MACOSCLASSIC
-#elif defined(__FreeBSD__)
-#define PLATFORM 5 // 5 for FREEBSD
-#elif defined(unix) || defined(__unix) || defined(__unix__)
-#define PLATFORM 6 // 6 for UNIX
-#elif defined(__ANDROID__)
-#define PLATFORM 7 // 7 for ANDROID
-#else
-#error Unsupported platform!
-#endif
+#include "platform.h"
 
 #include <string>
 #include <vector>
@@ -39,9 +23,7 @@
 #endif
 #define DELIM "/"
 // We'll be using statx() directly.
-#else
-// Non-Linux platforms: Use stat
-#if PLATFORM == 1
+#elif PLATFORM == 1
 #include <windows.h>
 #include <direct.h>
 #define STAT _stat
@@ -52,18 +34,15 @@
 #define STAT stat
 #define DELIM "/"
 #endif
-#endif
 
 #ifndef _MAX_PATH
 #define _MAX_PATH 1024
 #endif
 
-using namespace std;
-
-class FileException : public runtime_error
+class FileException : public std::runtime_error
 {
 public:
-  explicit FileException(const string &msg) : runtime_error(msg) {}
+  explicit FileException(const std::string &msg) : std::runtime_error(msg) {}
 };
 
 // enum FileType {
@@ -92,16 +71,17 @@ public:
   struct STAT file_stat;
 #endif
 
-  string abs_path;
-  string file_name;
+  std::string abs_path;
+  std::string file_name;
 
-  dev_t st_dev;         /* ID of device containing file */
-  ino_t st_ino;         /* Inode number */
-  mode_t st_mode;       /* File type and mode */
+  dev_t st_dev;   /* ID of device containing file */
+  ino_t st_ino;   /* Inode number */
+  mode_t st_mode; /* File type and mode */
 
   unsigned int permissions;
   unsigned int file_type;
 
+#if PLATFORM != 1
   nlink_t st_nlink;     /* Number of hard links */
   uid_t st_uid;         /* User ID of owner */
   gid_t st_gid;         /* Group ID of owner */
@@ -109,9 +89,10 @@ public:
   off_t st_size;        /* Total size, in bytes */
   blksize_t st_blksize; /* Block size for filesystem I/O */
   blkcnt_t st_blocks;   /* Number of 512 B blocks allocated */
+#endif
 
   // Check file existence
-  static bool exists(const string &name)
+  static bool exists(const std::string &name)
   {
 #if PLATFORM == 2
     return access(name.c_str(), F_OK) == 0;
@@ -124,7 +105,7 @@ public:
   File() = default;
 
   // Constructor: verifies file existence, resolves absolute path, and retrieves stats.
-  File(const string &file)
+  File(const std::string &file)
   {
     file_name = file;
 
@@ -133,13 +114,13 @@ public:
       throw FileException("File not found: " + file);
 
     // Resolve absolute path
-    vector<char> temp(_MAX_PATH);
+    std::vector<char> temp(_MAX_PATH);
     if (realpath(file.c_str(), temp.data()) == nullptr)
     {
       perror("realpath");
       throw FileException("Failed to resolve absolute path for: " + file);
     }
-    abs_path = string(temp.data());
+    abs_path = std::string(temp.data());
 
     // Retrieve file statistics
 #if PLATFORM == 2
@@ -176,6 +157,7 @@ public:
     this->st_dev = file_stat.st_dev;
     this->st_ino = file_stat.st_ino;
     this->st_mode = file_stat.st_mode;
+#if PLATFORM != 1
     this->st_nlink = file_stat.st_nlink;
     this->st_uid = file_stat.st_uid;
     this->st_gid = file_stat.st_gid;
@@ -184,41 +166,42 @@ public:
     this->st_blksize = file_stat.st_blksize;
     this->st_blocks = file_stat.st_blocks;
 #endif
+#endif
 
-    /* Custom fields */
-    #if PLATFORM != 1
+/* Custom fields */
+#if PLATFORM != 1
     this->file_type = this->st_mode & S_IFMT;
-    #else
+#else
     this->file_type = this->st_mode & _S_IFMT;
-    #endif
+#endif
     this->permissions = this->st_mode & 0777;
   }
 
   // Returns the directory component of a path.
-  static string dirname_of(const string &fname)
+  static std::string dirname_of(const std::string &fname)
   {
     size_t pos = fname.find_last_of("\\/");
-    return (pos == string::npos) ? "" : fname.substr(0, pos);
+    return (pos == std::string::npos) ? "" : fname.substr(0, pos);
   }
 
   // Returns the base name (file name) from a path.
-  static string basename(const string &path, bool is_dir = false)
+  static std::string basename(const std::string &path, bool is_dir = false)
   {
-    string base = path.substr(path.find_last_of(DELIM) + 1);
+    std::string base = path.substr(path.find_last_of(DELIM) + 1);
     if (is_dir && !base.empty() && base.back() != DELIM[0])
       base.push_back(DELIM[0]);
     return base;
   }
 
   // Returns the extension from the filename.
-  static string get_extension(const string &filename)
+  static std::string get_extension(const std::string &filename)
   {
     size_t pos = filename.find_last_of('.');
-    return (pos == string::npos) ? "" : filename.substr(pos + 1);
+    return (pos == std::string::npos) ? "" : filename.substr(pos + 1);
   }
 
-  // Converts file size to a human-readable string.
-  string readable_fs() const
+  // Converts file size to a human-readable std::string.
+  std::string readable_fs() const
   {
     long size;
 #if PLATFORM == 2
@@ -227,7 +210,7 @@ public:
     size = file_stat.st_size;
 #endif
     if (size < 1024)
-      return to_string(size) + " B";
+      return std::to_string(size) + " B";
 
     double result = size;
     const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
@@ -239,7 +222,7 @@ public:
     }
     char buf[64];
     sprintf(buf, "%.2f %s", result, units[i]);
-    return string(buf);
+    return std::string(buf);
   }
 
 #ifndef NO_DIRENT
@@ -257,7 +240,7 @@ public:
     {
       while (auto ep = readdir(dp))
       {
-        string name(ep->d_name);
+        std::string name(ep->d_name);
         if (name == "." || name == "..")
           continue;
         if (ep->d_type == DT_DIR)
@@ -273,12 +256,12 @@ public:
     }
 #else
     WIN32_FIND_DATAA findFileData;
-    HANDLE hFind = FindFirstFileA((path + "\\*").c_str(), &findFileData);
+    HANDLE hFind = FindFirstFileA((abs_path + "\\*").c_str(), &findFileData);
     if (hFind != INVALID_HANDLE_VALUE)
     {
       do
       {
-        string name(findFileData.cFileName);
+        std::string name(findFileData.cFileName);
         if (name == "." || name == "..")
           continue;
         bool isDir = (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -299,24 +282,24 @@ public:
   }
 #endif
 
-  string get_permissions() const
+  std::string get_permissions() const
   {
 #if PLATFORM == 1
     bool is_dir = st_mode & _S_IFDIR;
 #else
     bool is_dir = st_mode & S_IFDIR;
 #endif
-    string user;
+    std::string user;
     user += (permissions & S_IRUSR) ? "r" : "-";
     user += (permissions & S_IWUSR) ? "w" : "-";
     user += (permissions & S_IXUSR) ? "x" : "-";
 
-    string group;
+    std::string group;
     group += (permissions & S_IRGRP) ? "r" : "-";
     group += (permissions & S_IWGRP) ? "w" : "-";
     group += (permissions & S_IXGRP) ? "x" : "-";
 
-    string other;
+    std::string other;
     other += (permissions & S_IROTH) ? "r" : "-";
     other += (permissions & S_IWOTH) ? "w" : "-";
     other += (permissions & S_IXOTH) ? "x" : "-";
@@ -324,7 +307,7 @@ public:
     return (is_dir ? "d" : "-") + user + group + other;
   }
 
-  string get_file_type() const
+  std::string get_file_type() const
   {
     switch (st_mode & S_IFMT)
     {

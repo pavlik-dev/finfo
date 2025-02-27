@@ -1,5 +1,6 @@
 #define TAB "  "
 #define COLOR 0
+#include "platform.h"
 
 #include <iostream>
 #include <memory>
@@ -14,21 +15,19 @@
 #include <iomanip>
 
 /* Optional headers */
-#ifndef NO_MNTENT
+#if !defined(NO_MNTENT) && PLATFORM != 1
 #include <mntent.h>
 #endif
-
-using namespace std;
 
 #include "Field.cpp"
 #include "File.cpp"
 #include "mime.cpp"
 
 // Maybe move this to string_ops.cpp?
-string trim(const string &str, const string &whitespace = " \t\n")
+std::string trim(const std::string &str, const std::string &whitespace = " \t\n")
 {
   const auto strBegin = str.find_first_not_of(whitespace);
-  if (strBegin == string::npos)
+  if (strBegin == std::string::npos)
     return ""; // no content
 
   const auto strEnd = str.find_last_not_of(whitespace);
@@ -37,13 +36,13 @@ string trim(const string &str, const string &whitespace = " \t\n")
   return str.substr(strBegin, strRange);
 }
 
-string exec(string cmd)
+std::string exec(std::string cmd)
 {
-  shared_ptr<FILE> pipe(popen(cmd.c_str(), "r"), pclose);
+  std::shared_ptr<FILE> pipe(popen(cmd.c_str(), "r"), pclose);
   if (!pipe)
     return "ERROR";
   char buffer[128];
-  string result = "";
+  std::string result = "";
   while (!feof(pipe.get()))
   {
     if (fgets(buffer, 128, pipe.get()) != NULL)
@@ -53,7 +52,7 @@ string exec(string cmd)
 }
 
 // https://stackoverflow.com/a/4643526
-string escape_quotes(string str)
+std::string escape_quotes(std::string str)
 {
   size_t index = 0;
   while (true)
@@ -73,12 +72,12 @@ string escape_quotes(string str)
   return str;
 }
 
-int print_usage(string program_name)
+int print_usage(std::string program_name)
 {
-  cerr << "Usage:" << endl;
-  cerr << TAB << program_name << " [-d] <files>\n"
-       << endl;
-  cerr << TAB << "-d  --  Detailed view, fields f" << "rom `struct stat` (see 'man stat.3')" << endl;
+  std::cerr << "Usage:" << std::endl;
+  std::cerr << TAB << program_name << " [-d] <files>\n"
+            << std::endl;
+  std::cerr << TAB << "-d  --  Detailed view, fields f" << "rom `struct stat` (see 'man stat.3')" << std::endl;
   return 1;
 }
 
@@ -89,28 +88,28 @@ int main(int argc, char *argv[])
 
   bool detailed = false;
 
-  vector<string> files;
+  std::vector<std::string> files;
   bool _files = false;
   for (int i = 1; i < argc; ++i)
   {
-    if (argv[i] == string("-d") && !_files)
+    if (argv[i] == std::string("-d") && !_files)
     {
       detailed = true;
       _files = true;
       continue;
     }
-    files.push_back(string(argv[i]));
+    files.push_back(std::string(argv[i]));
   }
 
   if (files.size() < 1)
     return print_usage(argv[0]);
 
   int counter = 0;
-  for (const string &file : files)
+  for (const std::string &file : files)
   {
     counter++;
     File file_obj;
-    string abspath = file;
+    std::string abspath = file;
     bool is_dir = false;
     Field start(File::basename(abspath), "");
     try
@@ -119,14 +118,14 @@ int main(int argc, char *argv[])
     }
     catch (const FileException &e)
     {
-      start.addField(Field("Error", string(e.what())));
-      cout << start.print(TAB) << flush;
+      start.addField(Field("Error", std::string(e.what())));
+      std::cout << start.print(TAB) << std::flush;
       continue;
     }
 
     abspath = file_obj.abs_path;
 
-    string file_type = file_obj.get_file_type();
+    std::string file_type = file_obj.get_file_type();
 
     is_dir = file_obj.file_type == S_IFDIR;
     bool is_file = file_obj.file_type == S_IFREG;
@@ -143,7 +142,7 @@ int main(int argc, char *argv[])
     {
       DirContents insides = file_obj.get_files_in_directory();
 
-      ostringstream files_str, dirs_str;
+      std::ostringstream files_str, dirs_str;
 
       if (insides.normal_files > 0)
         files_str << insides.normal_files;
@@ -181,7 +180,7 @@ int main(int argc, char *argv[])
       }
       else
       {
-        string mount_points = "";
+        std::string mount_points = "";
         size_t total = 0;
         while (NULL != (ent = getmntent(aFile)))
         {
@@ -193,7 +192,7 @@ int main(int argc, char *argv[])
             break;
           } // Too much mount points!
           total += 1;
-          mount_points += ((mount_points != "") ? ", " : "") + string(ent->mnt_dir);
+          mount_points += ((mount_points != "") ? ", " : "") + std::string(ent->mnt_dir);
         }
 
         if (mount_points != "")
@@ -208,22 +207,24 @@ int main(int argc, char *argv[])
     if (detailed)
     {
       /* A bunch of stat values */
-      start.emplaceField("Parent device ID", to_string(file_obj.st_dev));
-      start.emplaceField("Inode", to_string(file_obj.st_ino));
-      start.emplaceField("Hard links", to_string(file_obj.st_nlink));
-      start.emplaceField("Owner", to_string(file_obj.st_uid) + ", group " +
-                                      to_string(file_obj.st_gid));
-      start.emplaceField("Special device ID", to_string(file_obj.st_rdev));
-      start.emplaceField("Size in bytes", to_string(file_obj.st_size));
-      start.emplaceField("FS block size", to_string(file_obj.st_blksize));
-      start.emplaceField("Total blocks", to_string(file_obj.st_blocks));
+      start.emplaceField("Parent device ID", std::to_string(file_obj.st_dev));
+      start.emplaceField("Inode", std::to_string(file_obj.st_ino));
+#if PLATFORM != 1
+      start.emplaceField("Hard links", std::to_string(file_obj.st_nlink));
+      start.emplaceField("Owner", std::to_string(file_obj.st_uid) + ", group " +
+                                      std::to_string(file_obj.st_gid));
+      start.emplaceField("Special device ID", std::to_string(file_obj.st_rdev));
+      start.emplaceField("Size in bytes", std::to_string(file_obj.st_size));
+      start.emplaceField("FS block size", std::to_string(file_obj.st_blksize));
+      start.emplaceField("Total blocks", std::to_string(file_obj.st_blocks));
+#endif
 
       start.addDelimiter();
     }
 
     char buffer[8];
     snprintf(buffer, sizeof(buffer), " (%3o)", file_obj.permissions);
-    string _perms(buffer);
+    std::string _perms(buffer);
     start.emplaceField(
         "Permissions", file_obj.get_permissions() + _perms);
 
@@ -236,11 +237,11 @@ int main(int argc, char *argv[])
     time_t created = file_obj.creation_time();
     timeinfo = localtime(&created);
     oss << std::put_time(timeinfo, " %Y-%m-%d %H:%M:%S")
-    #if PLATFORM == 2
-        << (detailed ? "." + to_string(file_obj.file_statx.stx_btime.tv_nsec) : "");
-    #else
+#if PLATFORM == 2
+        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_btime.tv_nsec) : "");
+#else
         ;
-    #endif
+#endif
     start.emplaceField("Created", oss.str());
 
     oss.str("");
@@ -250,11 +251,11 @@ int main(int argc, char *argv[])
     timeinfo = localtime(&last_opened);
 
     oss << std::put_time(timeinfo, "  %Y-%m-%d %H:%M:%S")
-    #if PLATFORM == 2
-        << (detailed ? "." + to_string(file_obj.file_statx.stx_atime.tv_nsec) : "");
-    #else
+#if PLATFORM == 2
+        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_atime.tv_nsec) : "");
+#else
         ;
-    #endif
+#endif
     start.emplaceField("Opened", oss.str());
 
     oss.str("");
@@ -262,15 +263,15 @@ int main(int argc, char *argv[])
     time_t modified = file_obj.modification_time();
     timeinfo = localtime(&modified);
     oss << std::put_time(timeinfo, "%Y-%m-%d %H:%M:%S")
-    #if PLATFORM == 2
-        << (detailed ? "." + to_string(file_obj.file_statx.stx_mtime.tv_nsec) : "");
-    #else
+#if PLATFORM == 2
+        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_mtime.tv_nsec) : "");
+#else
         ;
-    #endif
+#endif
     start.emplaceField("Modified", oss.str());
 
-    start.name = File::basename(file_obj.file_name) + (is_dir ? "/" : "");
-    cout << start.print(TAB) << flush;
+    start.name = File::basename(file_obj.file_name) + (is_dir ? DELIM : "");
+    std::cout << start.print(TAB) << std::flush;
   }
   return 0;
 }
