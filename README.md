@@ -67,5 +67,5 @@ make install
 ## Supported OSs
 **Linux** &mdash; Full support\
 **Mac OS X/OS X/macOS** &mdash; Untested, full support expected\
-**iPhone OS/iOS/iPadOS** &mdash; Compile with `NO_DIRENT`, `NO_MNTENT` and `NO_MIME`.
+**iPhone OS/iOS/iPadOS** &mdash; Compile with `NO_DIRENT`, `NO_MNTENT` and `NO_MIME`.\
 **Windows** &mdash; Some fields are not supported in detailed view.
