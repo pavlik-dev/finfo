@@ -140,6 +140,7 @@ int main(int argc, char *argv[])
 
     if (is_dir)
     {
+      #ifndef NO_DIRENT
       DirContents insides = file_obj.get_files_in_directory();
 
       std::ostringstream files_str, dirs_str;
@@ -160,6 +161,7 @@ int main(int argc, char *argv[])
 
       start.emplaceField("Files", "      " + files_str.str());
       start.emplaceField("Directories", dirs_str.str());
+      #endif
     }
     else if (is_file)
     {
