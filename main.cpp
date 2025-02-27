@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
                           to_string(insides.hidden_dirs) + " hidden)";
 
         Field files("Files", filesText);
-        Field dirs("Directories", filesText);
+        Field dirs("Directories", dirsText);
 
         dircont.add_field(files);
         dircont.add_field(dirs);
