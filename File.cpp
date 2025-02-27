@@ -1,97 +1,390 @@
-#include <string>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <vector>
-#ifndef _WIN32
-#define STAT stat
-#define DELIM "/"
+#if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64)
+#define PLATFORM 1 // 1 for WIN32
+#elif defined(__linux__) || defined(__linux)
+#define PLATFORM 2 // 2 for LINUX
+#elif defined(__MACH__)
+#define PLATFORM 3 // 3 for MACOSX
+#elif defined(__APPLE__)
+#define PLATFORM 4 // 4 for MACOSCLASSIC
+#elif defined(__FreeBSD__)
+#define PLATFORM 5 // 5 for FREEBSD
+#elif defined(unix) || defined(__unix) || defined(__unix__)
+#define PLATFORM 6 // 6 for UNIX
+#elif defined(__ANDROID__)
+#define PLATFORM 7 // 7 for ANDROID
 #else
-#define STAT _stat
-#define DELIM "\\"
+#error Unsupported platform!
 #endif
 
-#ifdef WIN32
-#define realpath(N,R) _fullpath((R),(N),_MAX_PATH)
+#include <string>
+#include <vector>
+#include <stdexcept>
+#include <cstdio>
+#include <sstream>
+#include <cstdlib>
+#include <unistd.h> // for access() and realpath()
+
+#if PLATFORM == 2
+// Linux-specific includes for statx
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/syscall.h>
+#include <sys/sysmacros.h>
+#ifndef NO_DIRENT
+#include <dirent.h>
+#endif
+// Ensure STATX_ALL is defined
+#ifndef STATX_ALL
+#define STATX_ALL 0xFFF
+#endif
+#define DELIM "/"
+// We'll be using statx() directly.
+#else
+// Non-Linux platforms: Use stat
+#if PLATFORM == 1
+#include <windows.h>
+#include <direct.h>
+#define STAT _stat
+#define DELIM "\\"
+#define realpath(N, R) _fullpath((R), (N), _MAX_PATH)
+#else
+#include <sys/stat.h>
+#define STAT stat
+#define DELIM "/"
+#endif
 #endif
 
 #ifndef _MAX_PATH
-#define _MAX_PATH 255
+#define _MAX_PATH 1024
 #endif
 
 using namespace std;
 
-inline bool __file_exists(const string& name) {
+class FileException : public runtime_error
+{
+public:
+  explicit FileException(const string &msg) : runtime_error(msg) {}
+};
+
+// enum FileType {
+//   BLOCK_DEVICE,
+//   CHAR_DEVICE,
+//   DIRECTORY,
+//   FIFO,
+//   SYMLINK,
+//   SOCKET,
+//   REGULAR,
+//   UNKNOWN
+// };
+
+struct DirContents
+{
+  int normal_files, hidden_files;
+  int normal_dirs, hidden_dirs;
+};
+
+class File
+{
+public:
+#if PLATFORM == 2
+  struct statx file_statx;
+#else
+  struct STAT file_stat;
+#endif
+
+  string abs_path;
+  string file_name;
+
+  dev_t st_dev;         /* ID of device containing file */
+  ino_t st_ino;         /* Inode number */
+  mode_t st_mode;       /* File type and mode */
+
+  unsigned int permissions;
+  unsigned int file_type;
+
+  nlink_t st_nlink;     /* Number of hard links */
+  uid_t st_uid;         /* User ID of owner */
+  gid_t st_gid;         /* Group ID of owner */
+  dev_t st_rdev;        /* Device ID (if special file) */
+  off_t st_size;        /* Total size, in bytes */
+  blksize_t st_blksize; /* Block size for filesystem I/O */
+  blkcnt_t st_blocks;   /* Number of 512 B blocks allocated */
+
+  // Check file existence
+  static bool exists(const string &name)
+  {
+#if PLATFORM == 2
+    return access(name.c_str(), F_OK) == 0;
+#else
     struct STAT buffer;
     return STAT(name.c_str(), &buffer) == 0;
-}
+#endif
+  }
 
-enum Stat {
-    _STAT,
-    LSTAT
-};
+  File() = default;
 
-class NotFoundException {
-public:
-    NotFoundException(const string& _what) : _what(_what) {}
-    string what() const {
-        return _what + " doesn't exist.";
+  // Constructor: verifies file existence, resolves absolute path, and retrieves stats.
+  File(const string &file)
+  {
+    file_name = file;
+
+    // Check for existence
+    if (!File::exists(file))
+      throw FileException("File not found: " + file);
+
+    // Resolve absolute path
+    vector<char> temp(_MAX_PATH);
+    if (realpath(file.c_str(), temp.data()) == nullptr)
+    {
+      perror("realpath");
+      throw FileException("Failed to resolve absolute path for: " + file);
     }
-private:
-    string _what;
-};
+    abs_path = string(temp.data());
 
-class StatFailedException {
-public:
-    StatFailedException(const string& _what) : _what(_what) {}
-    string what() const {
-        return "stat/lstat failed: " + _what;
+    // Retrieve file statistics
+#if PLATFORM == 2
+    // Call statx: use AT_FDCWD and AT_SYMLINK_NOFOLLOW for a non-following call.
+    if (statx(AT_FDCWD, abs_path.c_str(), AT_SYMLINK_NOFOLLOW, STATX_ALL, &file_statx) != 0)
+    {
+      perror("statx");
+      throw FileException("Failed to retrieve file statistics for: " + abs_path);
     }
-private:
-    string _what;
-};
-
-string dirnameOf(const string &fname)
-{
-  size_t pos = fname.find_last_of("\\/");
-  return (string::npos == pos) ? "" : fname.substr(0, pos);
-}
-
-inline string get_extension(const string &filename)
-{
-  return filename.substr(filename.find_last_of(".") + 1);
-}
-
-inline string basename(string path, bool is_dir = false)
-{
-	return (path.substr(path.find_last_of(DELIM) + 1)) + ((is_dir) ? DELIM : "");
-}
-
-class File {
-public:
-    string file_name;
-    string abs_path;
-    struct STAT file_stat;
-
-    // Constructor
-    File(const string& file) {
-        this->file_name = file;
-
-        if (!__file_exists(file)) {
-            throw NotFoundException(file);
-        }
-
-        vector<char> temp(_MAX_PATH);
-        if (realpath(file.c_str(), temp.data()) == nullptr) {
-            perror("realpath");
-            throw StatFailedException("Failed to resolve absolute path.");
-        }
-        this->abs_path = string(temp.data());
-
-        if (STAT(file.c_str(), &file_stat) != 0) {
-            perror(("stat error at file " + file).c_str());
-            throw StatFailedException(file);
-        }
+#else
+    if (STAT(abs_path.c_str(), &file_stat) != 0)
+    {
+      perror(("stat error on file: " + abs_path).c_str());
+      throw FileException("Failed to retrieve file statistics for: " + abs_path);
     }
+#endif
 
-    File() {}
+/* Now those stat fields
+   I noticed that a lot of fields (like st_blksize) don't match their types.
+   But who cares.
+*/
+#if PLATFORM == 2
+    this->st_dev = makedev(file_statx.stx_dev_major, file_statx.stx_dev_minor);
+    this->st_ino = file_statx.stx_ino;
+    this->st_mode = file_statx.stx_mode;
+    this->st_nlink = file_statx.stx_nlink;
+    this->st_uid = file_statx.stx_uid;
+    this->st_gid = file_statx.stx_gid;
+    this->st_rdev = makedev(file_statx.stx_rdev_major, file_statx.stx_rdev_minor);
+    this->st_size = file_statx.stx_size;
+    this->st_blksize = file_statx.stx_blksize;
+    this->st_blocks = file_statx.stx_blocks;
+#else
+    this->st_dev = file_stat.st_dev;
+    this->st_ino = file_stat.st_ino;
+    this->st_mode = file_stat.st_mode;
+    this->st_nlink = file_stat.st_nlink;
+    this->st_uid = file_stat.st_uid;
+    this->st_gid = file_stat.st_gid;
+    this->st_rdev = file_stat.st_rdev;
+    this->st_size = file_stat.st_size;
+    this->st_blksize = file_stat.st_blksize;
+    this->st_blocks = file_stat.st_blocks;
+#endif
+
+    /* Custom fields */
+    #if PLATFORM != 1
+    this->file_type = this->st_mode & S_IFMT;
+    #else
+    this->file_type = this->st_mode & _S_IFMT;
+    #endif
+    this->permissions = this->st_mode & 0777;
+  }
+
+  // Returns the directory component of a path.
+  static string dirname_of(const string &fname)
+  {
+    size_t pos = fname.find_last_of("\\/");
+    return (pos == string::npos) ? "" : fname.substr(0, pos);
+  }
+
+  // Returns the base name (file name) from a path.
+  static string basename(const string &path, bool is_dir = false)
+  {
+    string base = path.substr(path.find_last_of(DELIM) + 1);
+    if (is_dir && !base.empty() && base.back() != DELIM[0])
+      base.push_back(DELIM[0]);
+    return base;
+  }
+
+  // Returns the extension from the filename.
+  static string get_extension(const string &filename)
+  {
+    size_t pos = filename.find_last_of('.');
+    return (pos == string::npos) ? "" : filename.substr(pos + 1);
+  }
+
+  // Converts file size to a human-readable string.
+  string readable_fs() const
+  {
+    long size;
+#if PLATFORM == 2
+    size = file_statx.stx_size;
+#else
+    size = file_stat.st_size;
+#endif
+    if (size < 1024)
+      return to_string(size) + " B";
+
+    double result = size;
+    const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
+    int i = 0;
+    while (result >= 1024 && i < 6)
+    {
+      result /= 1024;
+      i++;
+    }
+    char buf[64];
+    sprintf(buf, "%.2f %s", result, units[i]);
+    return string(buf);
+  }
+
+#ifndef NO_DIRENT
+  DirContents get_files_in_directory() const
+  {
+    DirContents result;
+    /* Don't move this to DirContents, please! */
+    result.hidden_dirs = 0;
+    result.hidden_files = 0;
+    result.normal_dirs = 0;
+    result.normal_files = 0;
+
+#if PLATFORM != 1
+    if (DIR *dp = opendir(abs_path.c_str()))
+    {
+      while (auto ep = readdir(dp))
+      {
+        string name(ep->d_name);
+        if (name == "." || name == "..")
+          continue;
+        if (ep->d_type == DT_DIR)
+          name[0] == '.' ? ++result.hidden_dirs : ++result.normal_dirs;
+        else
+          name[0] == '.' ? ++result.hidden_files : ++result.normal_files;
+      }
+      closedir(dp);
+    }
+    else
+    {
+      perror("Couldn't open the directory");
+    }
+#else
+    WIN32_FIND_DATAA findFileData;
+    HANDLE hFind = FindFirstFileA((path + "\\*").c_str(), &findFileData);
+    if (hFind != INVALID_HANDLE_VALUE)
+    {
+      do
+      {
+        string name(findFileData.cFileName);
+        if (name == "." || name == "..")
+          continue;
+        bool isDir = (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        bool isHidden = (findFileData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0;
+        if (isDir)
+          isHidden ? ++result.hidden_dirs : ++result.normal_dirs;
+        else
+          isHidden ? ++result.hidden_files : ++result.normal_files;
+      } while (FindNextFileA(hFind, &findFileData));
+      FindClose(hFind);
+    }
+    else
+    {
+      perror("Couldn't open the directory");
+    }
+#endif
+    return result;
+  }
+#endif
+
+  string get_permissions() const
+  {
+#if PLATFORM == 1
+    bool is_dir = st_mode & _S_IFDIR;
+#else
+    bool is_dir = st_mode & S_IFDIR;
+#endif
+    string user;
+    user += (permissions & S_IRUSR) ? "r" : "-";
+    user += (permissions & S_IWUSR) ? "w" : "-";
+    user += (permissions & S_IXUSR) ? "x" : "-";
+
+    string group;
+    group += (permissions & S_IRGRP) ? "r" : "-";
+    group += (permissions & S_IWGRP) ? "w" : "-";
+    group += (permissions & S_IXGRP) ? "x" : "-";
+
+    string other;
+    other += (permissions & S_IROTH) ? "r" : "-";
+    other += (permissions & S_IWOTH) ? "w" : "-";
+    other += (permissions & S_IXOTH) ? "x" : "-";
+
+    return (is_dir ? "d" : "-") + user + group + other;
+  }
+
+  string get_file_type() const
+  {
+    switch (st_mode & S_IFMT)
+    {
+    case S_IFBLK:
+      return "block device";
+    case S_IFCHR:
+      return "character device";
+    case S_IFDIR:
+      return "directory";
+    case S_IFIFO:
+      return "FIFO/pipe";
+#ifndef _WIN32
+    case S_IFLNK:
+      return "symlink";
+    case S_IFSOCK:
+      return "socket";
+#endif
+    case S_IFREG:
+      return "regular file";
+
+    default:
+      return "unknown";
+    }
+  }
+
+  // Returns the creation time.
+  // On Linux, if stx_btime is available use it; otherwise, fall back to stx_ctime.
+  time_t creation_time() const
+  {
+#if PLATFORM == 2
+    if (file_statx.stx_mask & STATX_BTIME)
+      return file_statx.stx_btime.tv_sec;
+    else
+      return file_statx.stx_ctime.tv_sec;
+#elif PLATFORM == 1
+    return file_stat.st_ctime;
+#elif PLATFORM == 3
+    return file_stat.st_birthtime;
+#else
+    return file_stat.st_ctime;
+#endif
+  }
+
+  // Returns the modification time.
+  time_t modification_time() const
+  {
+#if PLATFORM == 2
+    return file_statx.stx_mtime.tv_sec;
+#else
+    return file_stat.st_mtime;
+#endif
+  }
+
+  // Returns the last access time.
+  time_t access_time() const
+  {
+#if PLATFORM == 2
+    return file_statx.stx_atime.tv_sec;
+#else
+    return file_stat.st_atime;
+#endif
+  }
 };
