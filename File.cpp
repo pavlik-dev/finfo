@@ -210,7 +210,8 @@ public:
     size = file_stat.st_size;
 #endif
     std::stringstream stream;
-    if (size < 1024) {
+    if (size < 1024)
+    {
       stream << size << " B";
       return stream.str();
     }
@@ -240,7 +241,7 @@ public:
 #if PLATFORM != 1
     if (DIR *dp = opendir(abs_path.c_str()))
     {
-      while (dirent* ep = readdir(dp))
+      while (dirent *ep = readdir(dp))
       {
         std::string name(ep->d_name);
         if (name == "." || name == "..")

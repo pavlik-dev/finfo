@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     return print_usage(argv[0]);
 
   int counter = 0;
-  for (counter=0;counter<files.size();++counter)
+  for (counter = 0; counter < files.size(); ++counter)
   {
     std::string file = files[counter];
     File file_obj;
