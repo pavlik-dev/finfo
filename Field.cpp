@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <utility>
 
 // The Field class represents a node with a name, a value, and optional subfields.
 class Field {
@@ -14,50 +13,46 @@ public:
     std::string name;
     std::string value;
     std::vector<Field> subfields;
-	bool delimiter = false;
+    bool delimiter;
 
     // Default constructor
-    Field() = default;
+    Field(bool delim) : delimiter(delim) {}
 
     // Parameterized constructor using const references to avoid unnecessary copying.
-    Field(const std::string& n, const std::string& v) : name(n), value(v) {}
+    Field(const std::string& n, const std::string& v) : name(n), value(v), delimiter(false) {}
 
     // Adds a subfield (lvalue version)
     void addField(const Field& subfield) {
         subfields.push_back(subfield);
     }
 
-    // Adds a subfield (rvalue version, using move semantics)
-    void addField(Field&& subfield) {
-        subfields.push_back(std::move(subfield));
+    // Removed the rvalue reference version method for C++98 compatibility.
+
+    void emplaceField(const std::string& name, const std::string& value) {
+        this->addField(Field(name, value));
     }
 
-    // Constructs a subfield in-place with provided arguments.
-    template <typename... Args>
-    void emplaceField(Args&&... args) {
-        subfields.emplace_back(std::forward<Args>(args)...);
+    // Adds a delimiter field.
+    void addDelimiter() {
+        Field field(true);
+        this->addField(field);
     }
-	
-	void addDelimiter() {
-		Field field;
-		field.delimiter = true;
-		this->addField(field);
-	}
 
     // Recursively generates a string representation of the Field with indentation.
-    std::string print(const std::string tab = "  ", int tabulation = 0) const {
+    std::string print(const std::string& tab = "  ", int tabulation = 0) const {
         std::stringstream ss;
-		if (!this->delimiter) {
-			for (int i = 0; i < tabulation; ++i)
-				ss << tab;
-			ss << name << ":";
-			if (!value.empty())
-				ss << " " << value;
-		}
+        if (!this->delimiter) {
+            for (int i = 0; i < tabulation; ++i)
+                ss << tab;
+            ss << name << ":";
+            if (!value.empty())
+                ss << " " << value;
+        }
         ss << "\n";
 
-        for (const auto& subfield : subfields)
-            ss << subfield.print(tab, tabulation + (int)(!this->delimiter));
+        // Use an iterator-based loop instead of a range-based for loop.
+        for (std::vector<Field>::const_iterator it = subfields.begin(); it != subfields.end(); ++it)
+            ss << it->print(tab, tabulation + (int)(!this->delimiter));
         return ss.str();
     }
 

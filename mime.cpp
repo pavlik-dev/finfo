@@ -7,14 +7,14 @@
 std::string get_mime(const std::string& filename)
 {
   const char* file_path = filename.c_str();
-  const auto magic_cookie = static_cast<const magic_t>(magic_open(MAGIC_MIME_TYPE));
-  if (magic_cookie == nullptr) {
+  const magic_t magic_cookie = static_cast<const magic_t>(magic_open(MAGIC_MIME_TYPE));
+  if (magic_cookie == NULL) {
     std::cerr << "Unable to initialize libmagic\n";
     return "";
   }
 
   // Load definitions from the mime types database
-  if (magic_load(magic_cookie, nullptr) != 0) {
+  if (magic_load(magic_cookie, NULL) != 0) {
     std::cerr << "Unable to load database definitions\n";
     magic_close(magic_cookie);
     return "";
@@ -22,7 +22,7 @@ std::string get_mime(const std::string& filename)
 
   // Determines the MIME type of the file
   const char *mime_type = magic_file(magic_cookie, file_path);
-  if (mime_type == nullptr) {
+  if (mime_type == NULL) {
     std::cerr << "Unable to determine the MIME type of the file\n";
     magic_close(magic_cookie);
     return "";
