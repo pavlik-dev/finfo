@@ -15,7 +15,7 @@ check_magic:
 	fi
 
 # Rule to compile main.cpp into the finfo executable, linking with libmagic
-finfo: check_magic $(MAIN_SRC)
+$(OUTPUT): check_magic $(MAIN_SRC)
 	$(CXX) $(CXXFLAGS) -o $(OUTPUT) $(MAIN_SRC) $(LDFLAGS)
 
 # Clean target to remove compiled files

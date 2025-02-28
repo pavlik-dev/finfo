@@ -1,17 +1,12 @@
 #define TAB "  "
 #define COLOR 0
-#include "platform.h"
+#include "platform.hpp"
 
 #include <iostream>
 #include <memory>
 #include <string>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <vector>
 #include <sstream>
-#include <getopt.h>
-#include <ctime>
 #include <iomanip>
 
 /* Optional headers */
@@ -22,32 +17,35 @@
 #include "Field.cpp"
 #include "File.cpp"
 #include "mime.cpp"
+#include "to_string.cpp"
+#include "put_date.cpp"
 
 // Maybe move this to string_ops.cpp?
 std::string trim(const std::string &str, const std::string &whitespace = " \t\n")
 {
-  const auto strBegin = str.find_first_not_of(whitespace);
+  const std::size_t strBegin = str.find_first_not_of(whitespace);
   if (strBegin == std::string::npos)
     return ""; // no content
 
-  const auto strEnd = str.find_last_not_of(whitespace);
-  const auto strRange = strEnd - strBegin + 1;
+  const std::size_t strEnd = str.find_last_not_of(whitespace);
+  const std::size_t strRange = strEnd - strBegin + 1;
 
   return str.substr(strBegin, strRange);
 }
 
 std::string exec(std::string cmd)
 {
-  std::shared_ptr<FILE> pipe(popen(cmd.c_str(), "r"), pclose);
+  FILE *pipe = popen(cmd.c_str(), "r");
   if (!pipe)
     return "ERROR";
   char buffer[128];
   std::string result = "";
-  while (!feof(pipe.get()))
+  while (!feof(pipe))
   {
-    if (fgets(buffer, 128, pipe.get()) != NULL)
+    if (fgets(buffer, 128, pipe) != NULL)
       result += buffer;
   }
+  pclose(pipe);
   return result;
 }
 
@@ -104,10 +102,10 @@ int main(int argc, char *argv[])
   if (files.size() < 1)
     return print_usage(argv[0]);
 
-  int counter = 0;
-  for (const std::string &file : files)
+  size_t counter = 0;
+  for (counter = 0; counter < files.size(); ++counter)
   {
-    counter++;
+    std::string file = files[counter];
     File file_obj;
     std::string abspath = file;
     bool is_dir = false;
@@ -140,7 +138,7 @@ int main(int argc, char *argv[])
 
     if (is_dir)
     {
-      #ifndef NO_DIRENT
+#ifndef NO_DIRENT
       DirContents insides = file_obj.get_files_in_directory();
 
       std::ostringstream files_str, dirs_str;
@@ -161,7 +159,7 @@ int main(int argc, char *argv[])
 
       start.emplaceField("Files", "      " + files_str.str());
       start.emplaceField("Directories", dirs_str.str());
-      #endif
+#endif
     }
     else if (is_file)
     {
@@ -224,9 +222,9 @@ int main(int argc, char *argv[])
       start.addDelimiter();
     }
 
-    char buffer[8];
-    snprintf(buffer, sizeof(buffer), " (%3o)", file_obj.permissions);
-    std::string _perms(buffer);
+    std::ostringstream oss;
+    oss << " (" << std::setw(3) << std::setfill(' ') << std::oct << file_obj.permissions << ")";
+    std::string _perms = oss.str();
     start.emplaceField(
         "Permissions", file_obj.get_permissions() + _perms);
 
@@ -234,13 +232,14 @@ int main(int argc, char *argv[])
 
     /* Date fields */
     struct tm *timeinfo;
-    std::ostringstream oss;
+    oss.str("");
+    oss.clear();
 
     time_t created = file_obj.creation_time();
     timeinfo = localtime(&created);
-    oss << std::put_time(timeinfo, " %Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2
-        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_btime.tv_nsec) : "");
+    oss << std::put_time(*timeinfo, " %Y-%m-%d %H:%M:%S")
+#if PLATFORM == 2 && !defined(NO_STATX)
+        << (detailed ? "." + std::to_string(file_obj.btime.tv_nsec) : "");
 #else
         ;
 #endif
@@ -252,9 +251,9 @@ int main(int argc, char *argv[])
     time_t last_opened = file_obj.access_time();
     timeinfo = localtime(&last_opened);
 
-    oss << std::put_time(timeinfo, "  %Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2
-        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_atime.tv_nsec) : "");
+    oss << std::put_time(*timeinfo, "  %Y-%m-%d %H:%M:%S")
+#if PLATFORM == 2 && !defined(NO_STATX)
+        << (detailed ? "." + std::to_string(file_obj.atime.tv_nsec) : "");
 #else
         ;
 #endif
@@ -264,9 +263,9 @@ int main(int argc, char *argv[])
     oss.clear();
     time_t modified = file_obj.modification_time();
     timeinfo = localtime(&modified);
-    oss << std::put_time(timeinfo, "%Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2
-        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_mtime.tv_nsec) : "");
+    oss << std::put_time(*timeinfo, "%Y-%m-%d %H:%M:%S")
+#if PLATFORM == 2 && !defined(NO_STATX)
+        << (detailed ? "." + std::to_string(file_obj.mtime.tv_nsec) : "");
 #else
         ;
 #endif

@@ -1,4 +1,4 @@
-#include "platform.h"
+#include "platform.hpp"
 
 #include <string>
 #include <vector>
@@ -21,11 +21,15 @@
 #ifndef STATX_ALL
 #define STATX_ALL 0xFFF
 #endif
+#ifdef NO_STATX
+#define STAT stat
+#endif
 #define DELIM "/"
 // We'll be using statx() directly.
 #elif PLATFORM == 1
 #include <windows.h>
 #include <direct.h>
+#include <fileapi.h>
 #define STAT _stat
 #define DELIM "\\"
 #define realpath(N, R) _fullpath((R), (N), _MAX_PATH)
@@ -65,7 +69,7 @@ struct DirContents
 class File
 {
 public:
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
   struct statx file_statx;
 #else
   struct STAT file_stat;
@@ -89,6 +93,10 @@ public:
   off_t st_size;        /* Total size, in bytes */
   blksize_t st_blksize; /* Block size for filesystem I/O */
   blkcnt_t st_blocks;   /* Number of 512 B blocks allocated */
+
+  timespec btime;  /* Birth date, in most platforms falls back to last status change. */
+  timespec mtime;  /* Modify date */
+  timespec atime;  /* Access date */
 #endif
 
   // Check file existence
@@ -102,7 +110,7 @@ public:
 #endif
   }
 
-  File() = default;
+  File() {};
 
   // Constructor: verifies file existence, resolves absolute path, and retrieves stats.
   File(const std::string &file)
@@ -115,15 +123,15 @@ public:
 
     // Resolve absolute path
     std::vector<char> temp(_MAX_PATH);
-    if (realpath(file.c_str(), temp.data()) == nullptr)
+    if (realpath(file.c_str(), &temp[0]) == NULL)
     {
       perror("realpath");
       throw FileException("Failed to resolve absolute path for: " + file);
     }
-    abs_path = std::string(temp.data());
+    abs_path = std::string(&temp[0]);
 
     // Retrieve file statistics
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
     // Call statx: use AT_FDCWD and AT_SYMLINK_NOFOLLOW for a non-following call.
     if (statx(AT_FDCWD, abs_path.c_str(), AT_SYMLINK_NOFOLLOW, STATX_ALL, &file_statx) != 0)
     {
@@ -137,12 +145,16 @@ public:
       throw FileException("Failed to retrieve file statistics for: " + abs_path);
     }
 #endif
+#if PLATFORM == 1
+    HANDLE k = CreateFileA((LPCSTR)this->abs_path, 0, 0, NULL, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL);
+#endif
 
 /* Now those stat fields
    I noticed that a lot of fields (like st_blksize) don't match their types.
    But who cares.
 */
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
     this->st_dev = makedev(file_statx.stx_dev_major, file_statx.stx_dev_minor);
     this->st_ino = file_statx.stx_ino;
     this->st_mode = file_statx.stx_mode;
@@ -153,10 +165,23 @@ public:
     this->st_size = file_statx.stx_size;
     this->st_blksize = file_statx.stx_blksize;
     this->st_blocks = file_statx.stx_blocks;
+
+    this->btime.tv_sec = file_statx.stx_btime.tv_sec;
+    this->btime.tv_nsec = file_statx.stx_btime.tv_nsec;
+
+    this->mtime.tv_sec = file_statx.stx_mtime.tv_sec;
+    this->mtime.tv_nsec = file_statx.stx_mtime.tv_nsec;
+
+    this->atime.tv_sec = file_statx.stx_atime.tv_sec;
+    this->atime.tv_nsec = file_statx.stx_atime.tv_nsec;
 #else
     this->st_dev = file_stat.st_dev;
     this->st_ino = file_stat.st_ino;
     this->st_mode = file_stat.st_mode;
+    this->btime = file_stat.st_ctime;
+    this->mtime = file_stat.st_mtime;
+    this->atime = file_stat.st_atime;
+
 #if PLATFORM != 1
     this->st_nlink = file_stat.st_nlink;
     this->st_uid = file_stat.st_uid;
@@ -188,7 +213,7 @@ public:
   static std::string basename(const std::string &path, bool is_dir = false)
   {
     std::string base = path.substr(path.find_last_of(DELIM) + 1);
-    if (is_dir && !base.empty() && base.back() != DELIM[0])
+    if (is_dir && !base.empty() && base[base.size() - 1] != DELIM[0])
       base.push_back(DELIM[0]);
     return base;
   }
@@ -204,25 +229,28 @@ public:
   std::string readable_fs() const
   {
     long size;
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
     size = file_statx.stx_size;
 #else
     size = file_stat.st_size;
 #endif
+    std::stringstream stream;
     if (size < 1024)
-      return std::to_string(size) + " B";
+    {
+      stream << size << " B";
+      return stream.str();
+    }
 
     double result = size;
-    const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
+    const std::string units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
     int i = 0;
     while (result >= 1024 && i < 6)
     {
       result /= 1024;
       i++;
     }
-    char buf[64];
-    sprintf(buf, "%.2f %s", result, units[i]);
-    return std::string(buf);
+    stream << result << " " << units[i];
+    return stream.str();
   }
 
 #ifndef NO_DIRENT
@@ -238,7 +266,7 @@ public:
 #if PLATFORM != 1
     if (DIR *dp = opendir(abs_path.c_str()))
     {
-      while (auto ep = readdir(dp))
+      while (dirent *ep = readdir(dp))
       {
         std::string name(ep->d_name);
         if (name == "." || name == "..")
@@ -335,15 +363,13 @@ public:
 
   // Returns the creation time.
   // On Linux, if stx_btime is available use it; otherwise, fall back to stx_ctime.
-  time_t creation_time() const
+  __time_t creation_time() const
   {
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
     if (file_statx.stx_mask & STATX_BTIME)
       return file_statx.stx_btime.tv_sec;
     else
       return file_statx.stx_ctime.tv_sec;
-#elif PLATFORM == 1
-    return file_stat.st_ctime;
 #elif PLATFORM == 3
     return file_stat.st_birthtime;
 #else
@@ -352,9 +378,9 @@ public:
   }
 
   // Returns the modification time.
-  time_t modification_time() const
+  const __time_t modification_time() const
   {
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
     return file_statx.stx_mtime.tv_sec;
 #else
     return file_stat.st_mtime;
@@ -362,9 +388,9 @@ public:
   }
 
   // Returns the last access time.
-  time_t access_time() const
+  const __time_t access_time() const
   {
-#if PLATFORM == 2
+#if PLATFORM == 2 && !defined(NO_STATX)
     return file_statx.stx_atime.tv_sec;
 #else
     return file_stat.st_atime;
