@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
   if (files.size() < 1)
     return print_usage(argv[0]);
 
-  int counter = 0;
+  size_t counter = 0;
   for (counter = 0; counter < files.size(); ++counter)
   {
     std::string file = files[counter];
@@ -238,8 +238,8 @@ int main(int argc, char *argv[])
     time_t created = file_obj.creation_time();
     timeinfo = localtime(&created);
     oss << std::put_time(*timeinfo, " %Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2
-        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_btime.tv_nsec) : "");
+#if PLATFORM == 2 && !defined(NO_STATX)
+        << (detailed ? "." + std::to_string(file_obj.btime.tv_nsec) : "");
 #else
         ;
 #endif
@@ -252,8 +252,8 @@ int main(int argc, char *argv[])
     timeinfo = localtime(&last_opened);
 
     oss << std::put_time(*timeinfo, "  %Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2
-        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_atime.tv_nsec) : "");
+#if PLATFORM == 2 && !defined(NO_STATX)
+        << (detailed ? "." + std::to_string(file_obj.atime.tv_nsec) : "");
 #else
         ;
 #endif
@@ -264,8 +264,8 @@ int main(int argc, char *argv[])
     time_t modified = file_obj.modification_time();
     timeinfo = localtime(&modified);
     oss << std::put_time(*timeinfo, "%Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2
-        << (detailed ? "." + std::to_string(file_obj.file_statx.stx_mtime.tv_nsec) : "");
+#if PLATFORM == 2 && !defined(NO_STATX)
+        << (detailed ? "." + std::to_string(file_obj.mtime.tv_nsec) : "");
 #else
         ;
 #endif
