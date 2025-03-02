@@ -1,3 +1,6 @@
+#define NO_MIME
+#define NO_STATX
+
 #define TAB "  "
 #define COLOR 0
 #include "platform.hpp"
@@ -238,11 +241,7 @@ int main(int argc, char *argv[])
     time_t created = file_obj.creation_time();
     timeinfo = localtime(&created);
     oss << std::put_time(*timeinfo, " %Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2 && !defined(NO_STATX)
         << (detailed ? "." + std::to_string(file_obj.btime.tv_nsec) : "");
-#else
-        ;
-#endif
     start.emplaceField("Created", oss.str());
 
     oss.str("");
@@ -252,11 +251,7 @@ int main(int argc, char *argv[])
     timeinfo = localtime(&last_opened);
 
     oss << std::put_time(*timeinfo, "  %Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2 && !defined(NO_STATX)
         << (detailed ? "." + std::to_string(file_obj.atime.tv_nsec) : "");
-#else
-        ;
-#endif
     start.emplaceField("Opened", oss.str());
 
     oss.str("");
@@ -264,11 +259,11 @@ int main(int argc, char *argv[])
     time_t modified = file_obj.modification_time();
     timeinfo = localtime(&modified);
     oss << std::put_time(*timeinfo, "%Y-%m-%d %H:%M:%S")
-#if PLATFORM == 2 && !defined(NO_STATX)
+// #if PLATFORM == 2 && !defined(NO_STATX)
         << (detailed ? "." + std::to_string(file_obj.mtime.tv_nsec) : "");
-#else
-        ;
-#endif
+// #else
+//         ;
+// #endif
     start.emplaceField("Modified", oss.str());
 
     start.name = File::basename(file_obj.abs_path) + (is_dir ? DELIM : "");

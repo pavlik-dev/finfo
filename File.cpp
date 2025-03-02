@@ -178,9 +178,13 @@ public:
     this->st_dev = file_stat.st_dev;
     this->st_ino = file_stat.st_ino;
     this->st_mode = file_stat.st_mode;
-    this->btime = file_stat.st_ctime;
-    this->mtime = file_stat.st_mtime;
-    this->atime = file_stat.st_atime;
+
+    this->btime.tv_sec = file_stat.st_ctime;
+    this->btime.tv_nsec = 0;
+    this->mtime.tv_sec = file_stat.st_mtime;
+    this->mtime.tv_nsec = 0;
+    this->atime.tv_sec = file_stat.st_atime;
+    this->atime.tv_nsec = 0;
 
 #if PLATFORM != 1
     this->st_nlink = file_stat.st_nlink;
