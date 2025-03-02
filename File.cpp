@@ -62,8 +62,8 @@ public:
 
 struct DirContents
 {
-  int normal_files, hidden_files;
-  int normal_dirs, hidden_dirs;
+  unsigned int normal_files, hidden_files;
+  unsigned int normal_dirs, hidden_dirs;
 };
 
 class File
